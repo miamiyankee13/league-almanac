@@ -116,12 +116,34 @@
   font-size: 10px;
 }
 
-.rivalry-profile-metrics-five {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+/* Rivalry dossier: put regular-season and playoff series side by side. */
+.rivalry-series-banner-paired {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.rivalry-profile-metrics-five > div:nth-child(4) strong,
-.rivalry-profile-metrics-five > div:nth-child(5) strong {
+.rivalry-series-card > span {
+  display: block;
+  color: #7890ad;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.rivalry-series-card > strong {
+  display: block;
+  margin-top: 6px;
+  color: #f1f5fb;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.rivalry-profile-metrics-four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.rivalry-profile-metrics-four > div:nth-child(2) strong,
+.rivalry-profile-metrics-four > div:nth-child(4) strong {
   font-size: 14px;
   line-height: 1.25;
 }
@@ -143,12 +165,14 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .rivalry-profile-metrics-five {
+  .rivalry-profile-metrics-four {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
 
-  .rivalry-profile-metrics-five > div:last-child {
-    grid-column: 1 / -1;
+@media (max-width: 940px) {
+  .rivalry-series-banner-paired {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -193,11 +217,8 @@
   }
 
   .manager-story-grid-four,
-  .rivalry-profile-metrics-five {
+  .rivalry-profile-metrics-four,
+  .rivalry-series-banner-paired {
     grid-template-columns: 1fr;
-  }
-
-  .rivalry-profile-metrics-five > div:last-child {
-    grid-column: auto;
   }
 }

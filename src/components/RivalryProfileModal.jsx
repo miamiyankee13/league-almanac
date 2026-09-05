@@ -1,8 +1,4 @@
-import {
-  formatRivalryRecord,
-  recordForManager,
-  seriesLeaderLabel,
-} from "../domain/rivalryMetrics";
+import { seriesLeaderLabel } from "../domain/rivalryMetrics";
 
 function points(value) {
   return Number(value || 0).toFixed(2);
@@ -116,17 +112,6 @@ export default function RivalryProfileModal({
   if (!rivalry) return null;
 
   const order = displayOrder(rivalry, focusManagerId);
-  const primaryRecord = recordForManager(
-    rivalry,
-    rivalry.regular,
-    order.primaryId
-  );
-  const secondaryRecord = recordForManager(
-    rivalry,
-    rivalry.regular,
-    order.secondaryId
-  );
-
   const firstMeetingSeason = rivalry.firstMeeting?.season || "—";
 
   return (
@@ -165,26 +150,23 @@ export default function RivalryProfileModal({
           </button>
         </div>
 
-        <div className="rivalry-series-banner">
-          <div>
+        <div className="rivalry-series-banner rivalry-series-banner-paired">
+          <div className="rivalry-series-card">
             <span>Regular-season series</span>
             <strong>{seriesLeaderLabel(rivalry, rivalry.regular)}</strong>
           </div>
 
-          <div className="rivalry-series-split">
-            <div>
-              <span>{order.primaryName}</span>
-              <strong>{formatRivalryRecord(primaryRecord)}</strong>
-            </div>
-            <div className="rivalry-series-divider">VS</div>
-            <div>
-              <span>{order.secondaryName}</span>
-              <strong>{formatRivalryRecord(secondaryRecord)}</strong>
-            </div>
+          <div className="rivalry-series-card">
+            <span>Playoff series</span>
+            <strong>
+              {rivalry.playoffs.games
+                ? seriesLeaderLabel(rivalry, rivalry.playoffs)
+                : "No playoff meetings"}
+            </strong>
           </div>
         </div>
 
-        <div className="manager-profile-metrics rivalry-profile-metrics rivalry-profile-metrics-five">
+        <div className="manager-profile-metrics rivalry-profile-metrics rivalry-profile-metrics-four">
           <div>
             <span>All Meetings</span>
             <strong>{rivalry.all.games}</strong>
@@ -196,14 +178,6 @@ export default function RivalryProfileModal({
           <div>
             <span>Avg Margin</span>
             <strong>{margin(rivalry.averageMargin)} pts</strong>
-          </div>
-          <div>
-            <span>Playoff Series</span>
-            <strong>
-              {rivalry.playoffs.games
-                ? seriesLeaderLabel(rivalry, rivalry.playoffs)
-                : "No meetings"}
-            </strong>
           </div>
           <div>
             <span>Current Streak</span>
