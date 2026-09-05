@@ -1,11 +1,8 @@
-import { useState } from "react";
 import {
   formatRivalryRecord,
   recordForManager,
   seriesLeaderLabel,
 } from "../domain/rivalryMetrics";
-
-const RECENT_MEETING_LIMIT = 5;
 
 function points(value) {
   return Number(value || 0).toFixed(2);
@@ -22,44 +19,34 @@ function meetingResult(meeting) {
     return `Tied ${points(meeting.pointsA)}-${points(meeting.pointsB)}`;
   }
 
-  const winnerIsA =
-    meeting.winnerManagerId === meeting.managerAId;
+  const winnerIsA = meeting.winnerManagerId === meeting.managerAId;
+  const winnerName = winnerIsA ? meeting.managerAName : meeting.managerBName;
+  const loserName = winnerIsA ? meeting.managerBName : meeting.managerAName;
+  const winnerPoints = winnerIsA ? meeting.pointsA : meeting.pointsB;
+  const loserPoints = winnerIsA ? meeting.pointsB : meeting.pointsA;
 
-  const winnerName = winnerIsA
-    ? meeting.managerAName
-    : meeting.managerBName;
-
-  const loserName = winnerIsA
-    ? meeting.managerBName
-    : meeting.managerAName;
-
-  const winnerPoints = winnerIsA
-    ? meeting.pointsA
-    : meeting.pointsB;
-
-  const loserPoints = winnerIsA
-    ? meeting.pointsB
-    : meeting.pointsA;
-
-  return `${winnerName} def. ${loserName} ${points(
-    winnerPoints
-  )}-${points(loserPoints)}`;
+  return `${winnerName} def. ${loserName} ${points(winnerPoints)}-${points(
+    loserPoints
+  )}`;
 }
 
-function StoryCard({ label, meeting, value }) {
+function storyCard(label, meeting) {
+  if (!meeting) {
+    return (
+      <article>
+        <span>{label}</span>
+        <strong>—</strong>
+        <small>No meeting available</small>
+      </article>
+    );
+  }
+
   return (
     <article>
       <span>{label}</span>
-      <strong>
-        {value ??
-          (meeting ? `${margin(meeting.margin)} pts` : "—")}
-      </strong>
+      <strong>{margin(meeting.margin)} pts</strong>
       <small>
-        {meeting
-          ? `${meeting.season} W${meeting.week} • ${meetingResult(
-              meeting
-            )}`
-          : "No meeting available"}
+        {meeting.season} W{meeting.week} • {meetingResult(meeting)}
       </small>
     </article>
   );
@@ -75,19 +62,7 @@ function playoffSeriesLabel(pair, breakdown) {
   return seriesLeaderLabel(pair, breakdown.playoffs);
 }
 
-function sortedMeetings(rivalry) {
-  return [...rivalry.meetings].sort((a, b) => {
-    if (Number(b.season) !== Number(a.season)) {
-      return Number(b.season) - Number(a.season);
-    }
-    return Number(b.week) - Number(a.week);
-  });
-}
-
 export default function RivalryProfileModal({ rivalry, onClose }) {
-  const [showSeasonHistory, setShowSeasonHistory] = useState(false);
-  const [showAllMeetings, setShowAllMeetings] = useState(false);
-
   if (!rivalry) return null;
 
   const recordA = recordForManager(
@@ -95,7 +70,6 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
     rivalry.regular,
     rivalry.managerAId
   );
-
   const recordB = recordForManager(
     rivalry,
     rivalry.regular,
@@ -108,27 +82,18 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
     rivalry.managerAId
   );
 
-  const playoffB = recordForManager(
-    rivalry,
-    rivalry.playoffs,
-    rivalry.managerBId
-  );
-
-  const meetings = sortedMeetings(rivalry);
-  const visibleMeetings = showAllMeetings
-    ? meetings
-    : meetings.slice(0, RECENT_MEETING_LIMIT);
+  const firstMeetingSeason = rivalry.firstMeeting?.season || "—";
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
       <section
-        className="rivalry-profile-modal compact-dossier"
+        className="rivalry-profile-modal"
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={`${rivalry.managerAName} versus ${rivalry.managerBName} rivalry`}
       >
-        <div className="manager-profile-header rivalry-dossier-header">
+        <div className="manager-profile-header">
           <div>
             <p className="eyebrow">Rivalry dossier</p>
             <h2>
@@ -136,19 +101,17 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
               <span className="rivalry-vs"> vs. </span>
               {rivalry.managerBName}
             </h2>
+
             <div className="manager-profile-subtitle">
+              <span>First meeting {firstMeetingSeason}</span>
               <span>
-                Since {rivalry.firstMeeting?.season || "—"}
+                {rivalry.regular.games} regular-season meeting
+                {rivalry.regular.games === 1 ? "" : "s"}
               </span>
               <span>
-                {rivalry.regular.games} regular-season meetings
+                {rivalry.playoffs.games} playoff meeting
+                {rivalry.playoffs.games === 1 ? "" : "s"}
               </span>
-              {rivalry.playoffs.games > 0 && (
-                <span>
-                  {rivalry.playoffs.games} playoff meeting
-                  {rivalry.playoffs.games === 1 ? "" : "s"}
-                </span>
-              )}
             </div>
           </div>
 
@@ -157,173 +120,185 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
           </button>
         </div>
 
-        <div className="rivalry-scoreboard">
-          <div className="rivalry-score-side">
-            <span>{rivalry.managerAName}</span>
-            <strong>{formatRivalryRecord(recordA)}</strong>
-            <small>{points(rivalry.regular.pointsA)} points</small>
-          </div>
-
-          <div className="rivalry-score-center">
-            <span>REGULAR SERIES</span>
+        <div className="rivalry-series-banner">
+          <div>
+            <span>Regular-season series</span>
             <strong>{seriesLeaderLabel(rivalry, rivalry.regular)}</strong>
           </div>
 
-          <div className="rivalry-score-side right">
-            <span>{rivalry.managerBName}</span>
-            <strong>{formatRivalryRecord(recordB)}</strong>
-            <small>{points(rivalry.regular.pointsB)} points</small>
+          <div className="rivalry-series-split">
+            <div>
+              <span>{rivalry.managerAName}</span>
+              <strong>{formatRivalryRecord(recordA)}</strong>
+            </div>
+            <div className="rivalry-series-divider">VS</div>
+            <div>
+              <span>{rivalry.managerBName}</span>
+              <strong>{formatRivalryRecord(recordB)}</strong>
+            </div>
           </div>
         </div>
 
-        <div className="rivalry-quick-metrics">
+        <div className="manager-profile-metrics rivalry-profile-metrics">
+          <div>
+            <span>All Meetings</span>
+            <strong>{rivalry.all.games}</strong>
+          </div>
+          <div>
+            <span>Total Points</span>
+            <strong>
+              {points(rivalry.all.pointsA)} – {points(rivalry.all.pointsB)}
+            </strong>
+          </div>
           <div>
             <span>Avg Margin</span>
             <strong>{margin(rivalry.averageMargin)}</strong>
           </div>
           <div>
-            <span>Current Streak</span>
-            <strong>{rivalry.currentStreak?.label || "—"}</strong>
-          </div>
-          <div>
             <span>Playoff Series</span>
             <strong>
               {rivalry.playoffs.games
-                ? `${rivalry.managerAName} ${formatRivalryRecord(
-                    playoffA
-                  )} • ${rivalry.managerBName} ${formatRivalryRecord(
-                    playoffB
-                  )}`
+                ? seriesLeaderLabel(rivalry, rivalry.playoffs)
                 : "No meetings"}
             </strong>
           </div>
-        </div>
-
-        <div className="manager-story-grid rivalry-story-grid compact">
-          <StoryCard
-            label="Closest Game"
-            meeting={rivalry.closestGame}
-          />
-          <StoryCard
-            label="Biggest Blowout"
-            meeting={rivalry.biggestBlowout}
-          />
-          <StoryCard
-            label="Highest-Scoring"
-            meeting={rivalry.highestCombined}
-            value={
-              rivalry.highestCombined
-                ? `${points(
-                    rivalry.highestCombined.combinedPoints
-                  )} combined`
-                : "—"
-            }
-          />
-        </div>
-
-        <div className="rivalry-recent-section">
-          <div className="manager-profile-section-heading compact">
-            <div>
-              <p className="eyebrow">Recent receipts</p>
-              <h3>
-                {showAllMeetings
-                  ? "Every Meeting"
-                  : `Last ${Math.min(
-                      RECENT_MEETING_LIMIT,
-                      meetings.length
-                    )} Meetings`}
-              </h3>
-            </div>
-            <span>{meetings.length} total</span>
+          <div>
+            <span>{rivalry.managerAName} Playoff H2H</span>
+            <strong>
+              {rivalry.playoffs.games
+                ? formatRivalryRecord(playoffA)
+                : "—"}
+            </strong>
           </div>
-
-          <div className="rivalry-recent-list">
-            {visibleMeetings.map((meeting) => (
-              <div className="rivalry-recent-row" key={meeting.meetingId}>
-                <div className="rivalry-recent-when">
-                  <strong>{meeting.season}</strong>
-                  <span>
-                    W{meeting.week}
-                    {meeting.isPlayoff ? ` • ${meeting.stage}` : ""}
-                  </span>
-                </div>
-
-                <div className="rivalry-recent-result">
-                  <strong>{meetingResult(meeting)}</strong>
-                  <span>
-                    {meeting.teamAName} vs. {meeting.teamBName}
-                  </span>
-                </div>
-
-                <div className="rivalry-recent-margin">
-                  {margin(meeting.margin)}
-                </div>
-              </div>
-            ))}
+          <div>
+            <span>Current Streak</span>
+            <strong>{rivalry.currentStreak?.label || "—"}</strong>
           </div>
-
-          {meetings.length > RECENT_MEETING_LIMIT && (
-            <button
-              type="button"
-              className="rivalry-disclosure-button"
-              onClick={() => setShowAllMeetings((value) => !value)}
-            >
-              {showAllMeetings
-                ? "SHOW RECENT ONLY"
-                : `SHOW ALL ${meetings.length} MEETINGS`}
-            </button>
-          )}
         </div>
 
-        <div className="rivalry-collapsible">
-          <button
-            type="button"
-            className="rivalry-collapsible-trigger"
-            onClick={() => setShowSeasonHistory((value) => !value)}
-          >
-            <div>
-              <span className="eyebrow">Series history</span>
-              <strong>Season-by-Season Breakdown</strong>
-            </div>
-            <span>{showSeasonHistory ? "−" : "+"}</span>
-          </button>
+        <div className="manager-story-grid rivalry-story-grid">
+          {storyCard("Closest Game", rivalry.closestGame)}
+          {storyCard("Biggest Blowout", rivalry.biggestBlowout)}
 
-          {showSeasonHistory && (
-            <div className="table-wrap rivalry-season-history-wrap">
-              <table className="rivalry-season-table">
-                <thead>
-                  <tr>
-                    <th>Season</th>
-                    <th>Meetings</th>
-                    <th>Regular Series</th>
-                    <th>Playoffs</th>
-                    <th>Points</th>
+          <article>
+            <span>Highest-Scoring Meeting</span>
+            <strong>
+              {rivalry.highestCombined
+                ? `${points(rivalry.highestCombined.combinedPoints)} combined`
+                : "—"}
+            </strong>
+            <small>
+              {rivalry.highestCombined
+                ? `${rivalry.highestCombined.season} W${
+                    rivalry.highestCombined.week
+                  } • ${meetingResult(rivalry.highestCombined)}`
+                : "No meeting available"}
+            </small>
+          </article>
+        </div>
+
+        <div className="manager-profile-section-heading">
+          <div>
+            <p className="eyebrow">Series history</p>
+            <h3>Season by Season</h3>
+          </div>
+          <span>Regular season and playoff records remain separate</span>
+        </div>
+
+        <div className="table-wrap">
+          <table className="rivalry-season-table">
+            <thead>
+              <tr>
+                <th>Season</th>
+                <th>Meetings</th>
+                <th>Regular Series</th>
+                <th>Playoffs</th>
+                <th>Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rivalry.seasonBreakdown.map((season) => (
+                <tr key={season.season}>
+                  <td>
+                    <strong>{season.season}</strong>
+                  </td>
+                  <td>{season.meetings}</td>
+                  <td>{seasonSeriesLabel(rivalry, season)}</td>
+                  <td>{playoffSeriesLabel(rivalry, season)}</td>
+                  <td className="record-cell">
+                    {points(season.pointsA)} – {points(season.pointsB)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="manager-profile-section-heading rivalry-history-heading">
+          <div>
+            <p className="eyebrow">Receipts</p>
+            <h3>Every Meeting</h3>
+          </div>
+          <span>Newest first</span>
+        </div>
+
+        <div className="table-wrap rivalry-history-wrap">
+          <table className="rivalry-history-table">
+            <thead>
+              <tr>
+                <th>Season</th>
+                <th>Week</th>
+                <th>Stage</th>
+                <th>Result</th>
+                <th>Margin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...rivalry.meetings]
+                .sort((a, b) => {
+                  if (Number(b.season) !== Number(a.season)) {
+                    return Number(b.season) - Number(a.season);
+                  }
+                  return Number(b.week) - Number(a.week);
+                })
+                .map((meeting) => (
+                  <tr key={meeting.meetingId}>
+                    <td>
+                      <strong>{meeting.season}</strong>
+                    </td>
+                    <td>{meeting.week}</td>
+                    <td>
+                      <span
+                        className={
+                          meeting.isPlayoff
+                            ? "rivalry-stage playoff"
+                            : "rivalry-stage"
+                        }
+                      >
+                        {meeting.stage}
+                      </span>
+                    </td>
+                    <td>
+                      <strong className="rivalry-result">
+                        {meetingResult(meeting)}
+                      </strong>
+                      <span className="rivalry-team-context">
+                        {meeting.teamAName} vs. {meeting.teamBName}
+                      </span>
+                    </td>
+                    <td>{margin(meeting.margin)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {rivalry.seasonBreakdown.map((season) => (
-                    <tr key={season.season}>
-                      <td>
-                        <strong>{season.season}</strong>
-                      </td>
-                      <td>{season.meetings}</td>
-                      <td>{seasonSeriesLabel(rivalry, season)}</td>
-                      <td>{playoffSeriesLabel(rivalry, season)}</td>
-                      <td className="record-cell">
-                        {points(season.pointsA)} – {points(season.pointsB)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+            </tbody>
+          </table>
         </div>
 
-        <div className="manager-profile-note rivalry-definition-note">
-          Records are manager-vs-manager H2H only. League-median bonus results
-          never count. Playoff meetings include the championship path plus the
-          official 3rd-place game; lower placement games are excluded.
+        <div className="manager-profile-note">
+          Rivalry series records use actual manager-vs-manager games only.
+          League-median bonus results never count. “Playoff meetings” only
+          includes resolved championship-path games plus the official
+          3rd-place game. Fifth-place, seventh-place and other lower placement
+          games are excluded.
         </div>
       </section>
     </div>
