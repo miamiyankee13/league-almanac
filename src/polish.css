@@ -148,6 +148,14 @@
   line-height: 1.25;
 }
 
+.rivalry-overall-meetings {
+  display: block;
+  margin-top: 5px;
+  color: #71849b;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
 .record-card-owner strong,
 .record-card-owner span {
   overflow: visible;

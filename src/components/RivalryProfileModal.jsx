@@ -168,8 +168,12 @@ export default function RivalryProfileModal({
 
         <div className="manager-profile-metrics rivalry-profile-metrics rivalry-profile-metrics-four">
           <div>
-            <span>All Meetings</span>
-            <strong>{rivalry.all.games}</strong>
+            <span>Overall Series</span>
+            <strong>{seriesLeaderLabel(rivalry, rivalry.all)}</strong>
+            <small className="rivalry-overall-meetings">
+              {rivalry.all.games} total meeting
+              {rivalry.all.games === 1 ? "" : "s"}
+            </small>
           </div>
           <div>
             <span>Point Differential</span>
