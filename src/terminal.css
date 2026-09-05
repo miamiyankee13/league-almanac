@@ -282,6 +282,17 @@ h3 {
   min-width: 0;
 }
 
+/* On the disconnected screen there is no eyebrow above the product title.
+   Align the LA mark to the title line rather than centering it against the
+   combined title + descriptive subhead block. */
+.masthead-brand.disconnected {
+  align-items: flex-start;
+}
+
+.masthead-brand.disconnected .almanac-logo {
+  margin-top: 1px;
+}
+
 .almanac-logo {
   display: grid;
   flex: 0 0 34px;

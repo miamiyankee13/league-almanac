@@ -274,7 +274,7 @@ export default function App() {
 
       <main className="almanac-shell">
         <div className="masthead">
-          <div className="masthead-brand">
+          <div className={`masthead-brand ${almanac ? "connected" : "disconnected"}`}>
             <div className="almanac-logo" aria-hidden="true">LA</div>
             <div>
               {almanac && <p className="eyebrow">League Almanac</p>}

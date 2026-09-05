@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect x="3" y="3" width="58" height="58" fill="#0b0e13" stroke="#e0a83b" stroke-width="2"/>
-  <rect x="7" y="7" width="50" height="50" fill="none" stroke="#e0a83b" stroke-opacity=".18" stroke-width="2"/>
+  <rect x="3" y="3" width="58" height="58" fill="#f3eee3" stroke="#a6760f" stroke-width="2"/>
+  <rect x="7" y="7" width="50" height="50" fill="none" stroke="#a6760f" stroke-opacity=".24" stroke-width="2"/>
   <text x="32" y="39"
         text-anchor="middle"
         font-family="IBM Plex Mono, JetBrains Mono, monospace"
         font-size="25"
         font-weight="600"
         letter-spacing="1"
-        fill="#e0a83b">LA</text>
+        fill="#a6760f">LA</text>
 </svg>
