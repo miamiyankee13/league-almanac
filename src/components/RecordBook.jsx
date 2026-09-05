@@ -4,6 +4,10 @@ import {
   formatPct,
   formatRecord,
 } from "../domain/recordBookMetrics";
+import {
+  buildRivalryMetrics,
+  seriesLeaderLabel,
+} from "../domain/rivalryMetrics";
 
 function points(value) {
   return Number(value || 0).toFixed(2);
@@ -14,43 +18,24 @@ function signedPoints(value) {
   return `${n > 0 ? "+" : ""}${n.toFixed(2)}`;
 }
 
-function gameOwner(entry) {
-  if (!entry) return "—";
-
-  return (
-    <>
-      <strong>{entry.managerName}</strong>
-      <span>{entry.teamName}</span>
-    </>
-  );
+function equalNumber(a, b) {
+  return Math.abs(Number(a || 0) - Number(b || 0)) < 1e-9;
 }
 
-function gameContext(entry) {
-  if (!entry) return "No record available";
-
-  return `${entry.season} • Week ${entry.week} • ${entry.stage}`;
+function tiedMax(items, getter) {
+  if (!items.length) return [];
+  const best = Math.max(...items.map((item) => Number(getter(item) || 0)));
+  return items.filter((item) => equalNumber(getter(item), best));
 }
 
-function scoreResult(entry) {
-  if (!entry) return "—";
-
-  return `${entry.outcome} ${points(entry.points)}–${points(
-    entry.opponentPoints
-  )} vs ${entry.opponentManagerName}`;
+function tiedMin(items, getter) {
+  if (!items.length) return [];
+  const best = Math.min(...items.map((item) => Number(getter(item) || 0)));
+  return items.filter((item) => equalNumber(getter(item), best));
 }
 
-function matchupResult(game) {
-  if (!game) return "—";
-
-  if (game.isTie) {
-    return `${game.teamA.managerName} tied ${game.teamB.managerName} ${points(
-      game.teamA.points
-    )}–${points(game.teamB.points)}`;
-  }
-
-  return `${game.winner.managerName} def. ${
-    game.loser.managerName
-  } ${points(game.winner.points)}–${points(game.loser.points)}`;
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function RecordCard({ label, value, owner, context, detail }) {
@@ -65,169 +50,191 @@ function RecordCard({ label, value, owner, context, detail }) {
   );
 }
 
+function singleGameOwner(entry) {
+  if (!entry) return null;
+  return (
+    <>
+      <strong>{entry.managerName}</strong>
+      <span>{entry.teamName}</span>
+    </>
+  );
+}
+
+function tiedGameOwners(entries, selector = (entry) => entry) {
+  const names = unique(entries.map((entry) => selector(entry)?.managerName));
+  return (
+    <>
+      <strong>{names.join(" · ") || "Multiple games"}</strong>
+      <span>
+        {entries.length} tied game{entries.length === 1 ? "" : "s"}
+      </span>
+    </>
+  );
+}
+
+function entryResult(entry) {
+  if (!entry) return "—";
+
+  if (entry.outcome === "T") {
+    return `${entry.managerName} tied ${entry.opponentManagerName} ${points(
+      entry.points
+    )}–${points(entry.opponentPoints)}`;
+  }
+
+  if (entry.outcome === "W") {
+    return `${entry.managerName} def. ${entry.opponentManagerName} ${points(
+      entry.points
+    )}–${points(entry.opponentPoints)}`;
+  }
+
+  return `${entry.opponentManagerName} def. ${entry.managerName} ${points(
+    entry.opponentPoints
+  )}–${points(entry.points)}`;
+}
+
+function entryReceipt(entry) {
+  if (!entry) return "—";
+  const stage = entry.stage !== "Regular Season" ? ` · ${entry.stage}` : "";
+  return `${entry.season} W${entry.week}${stage} — ${entryResult(entry)}`;
+}
+
+function matchupResult(game) {
+  if (!game) return "—";
+
+  if (game.isTie) {
+    return `${game.teamA.managerName} tied ${game.teamB.managerName} ${points(
+      game.teamA.points
+    )}–${points(game.teamB.points)}`;
+  }
+
+  return `${game.winner.managerName} def. ${game.loser.managerName} ${points(
+    game.winner.points
+  )}–${points(game.loser.points)}`;
+}
+
+function matchupReceipt(game) {
+  if (!game) return "—";
+  const stage = game.stage !== "Regular Season" ? ` · ${game.stage}` : "";
+  return `${game.season} W${game.week}${stage} — ${matchupResult(game)}`;
+}
+
 function GameRecords({ data }) {
+  const decidedGames = data.matchupGames.filter((game) => !game.isTie);
+  const losingEntries = data.teamGames.filter((entry) => entry.outcome === "L");
+  const winningEntries = data.teamGames.filter((entry) => entry.outcome === "W");
+
+  const highestScore = tiedMax(data.teamGames, (entry) => entry.points);
+  const lowestScore = tiedMin(data.teamGames, (entry) => entry.points);
+  const biggestBlowout = tiedMax(decidedGames, (game) => game.margin);
+  const closestWin = tiedMin(decidedGames, (game) => game.margin);
+  const highestLosing = tiedMax(losingEntries, (entry) => entry.points);
+  const lowestWinning = tiedMin(winningEntries, (entry) => entry.points);
+  const highestCombined = tiedMax(
+    data.matchupGames,
+    (game) => game.combinedPoints
+  );
+  const lowestCombined = tiedMin(
+    data.matchupGames,
+    (game) => game.combinedPoints
+  );
+
+  const sideCard = (label, entries, valueFormatter) => {
+    const entry = entries[0];
+    return (
+      <RecordCard
+        label={label}
+        value={entry ? valueFormatter(entry) : "—"}
+        owner={
+          entries.length === 1
+            ? singleGameOwner(entry)
+            : entries.length > 1
+              ? tiedGameOwners(entries)
+              : null
+        }
+        detail={
+          entries.length === 1
+            ? entryReceipt(entry)
+            : entries.length > 1
+              ? "Tied record"
+              : null
+        }
+      />
+    );
+  };
+
+  const matchupCard = (label, entries, valueFormatter, ownerSelector) => {
+    const game = entries[0];
+    return (
+      <RecordCard
+        label={label}
+        value={game ? valueFormatter(game) : "—"}
+        owner={
+          game && ownerSelector
+            ? entries.length === 1
+              ? singleGameOwner(ownerSelector(game))
+              : tiedGameOwners(entries, ownerSelector)
+            : entries.length > 1
+              ? (
+                  <>
+                    <strong>{entries.length} games</strong>
+                    <span>Tied record</span>
+                  </>
+                )
+              : null
+        }
+        detail={
+          entries.length === 1
+            ? matchupReceipt(game)
+            : entries.length > 1
+              ? "Tied record"
+              : null
+        }
+      />
+    );
+  };
+
   return (
     <>
       <div className="record-card-grid record-card-grid-primary">
-        <RecordCard
-          label="Highest Weekly Score"
-          value={data.highestScore ? points(data.highestScore.points) : "—"}
-          owner={data.highestScore ? gameOwner(data.highestScore) : null}
-          context={gameContext(data.highestScore)}
-          detail={
-            data.highestScore
-              ? scoreResult(data.highestScore)
-              : null
-          }
-        />
-
-        <RecordCard
-          label="Biggest Blowout"
-          value={
-            data.biggestBlowout
-              ? `${points(data.biggestBlowout.margin)} pts`
-              : "—"
-          }
-          owner={
-            data.biggestBlowout
-              ? gameOwner(data.biggestBlowout.winner)
-              : null
-          }
-          context={
-            data.biggestBlowout
-              ? `${data.biggestBlowout.season} • Week ${
-                  data.biggestBlowout.week
-                } • ${data.biggestBlowout.stage}`
-              : null
-          }
-          detail={
-            data.biggestBlowout
-              ? matchupResult(data.biggestBlowout)
-              : null
-          }
-        />
-
-        <RecordCard
-          label="Closest Win"
-          value={
-            data.closestWin
-              ? `${points(data.closestWin.margin)} pts`
-              : "—"
-          }
-          owner={
-            data.closestWin
-              ? gameOwner(data.closestWin.winner)
-              : null
-          }
-          context={
-            data.closestWin
-              ? `${data.closestWin.season} • Week ${
-                  data.closestWin.week
-                } • ${data.closestWin.stage}`
-              : null
-          }
-          detail={
-            data.closestWin
-              ? matchupResult(data.closestWin)
-              : null
-          }
-        />
-
-        <RecordCard
-          label="Highest Losing Score"
-          value={
-            data.highestLosingScore
-              ? points(data.highestLosingScore.points)
-              : "—"
-          }
-          owner={
-            data.highestLosingScore
-              ? gameOwner(data.highestLosingScore)
-              : null
-          }
-          context={gameContext(data.highestLosingScore)}
-          detail={
-            data.highestLosingScore
-              ? scoreResult(data.highestLosingScore)
-              : null
-          }
-        />
+        {sideCard("Highest Weekly Score", highestScore, (entry) => points(entry.points))}
+        {matchupCard(
+          "Biggest Blowout",
+          biggestBlowout,
+          (game) => `${points(game.margin)} pts`,
+          (game) => game.winner
+        )}
+        {matchupCard(
+          "Closest Win",
+          closestWin,
+          (game) => `${points(game.margin)} pts`,
+          (game) => game.winner
+        )}
+        {sideCard(
+          "Highest Losing Score",
+          highestLosing,
+          (entry) => points(entry.points)
+        )}
       </div>
 
       <div className="record-card-grid">
-        <RecordCard
-          label="Lowest Weekly Score"
-          value={data.lowestScore ? points(data.lowestScore.points) : "—"}
-          owner={data.lowestScore ? gameOwner(data.lowestScore) : null}
-          context={gameContext(data.lowestScore)}
-          detail={
-            data.lowestScore
-              ? scoreResult(data.lowestScore)
-              : null
-          }
-        />
-
-        <RecordCard
-          label="Lowest Winning Score"
-          value={
-            data.lowestWinningScore
-              ? points(data.lowestWinningScore.points)
-              : "—"
-          }
-          owner={
-            data.lowestWinningScore
-              ? gameOwner(data.lowestWinningScore)
-              : null
-          }
-          context={gameContext(data.lowestWinningScore)}
-          detail={
-            data.lowestWinningScore
-              ? scoreResult(data.lowestWinningScore)
-              : null
-          }
-        />
-
-        <RecordCard
-          label="Highest Combined Score"
-          value={
-            data.highestCombined
-              ? points(data.highestCombined.combinedPoints)
-              : "—"
-          }
-          context={
-            data.highestCombined
-              ? `${data.highestCombined.season} • Week ${
-                  data.highestCombined.week
-                } • ${data.highestCombined.stage}`
-              : null
-          }
-          detail={
-            data.highestCombined
-              ? matchupResult(data.highestCombined)
-              : null
-          }
-        />
-
-        <RecordCard
-          label="Lowest Combined Score"
-          value={
-            data.lowestCombined
-              ? points(data.lowestCombined.combinedPoints)
-              : "—"
-          }
-          context={
-            data.lowestCombined
-              ? `${data.lowestCombined.season} • Week ${
-                  data.lowestCombined.week
-                } • ${data.lowestCombined.stage}`
-              : null
-          }
-          detail={
-            data.lowestCombined
-              ? matchupResult(data.lowestCombined)
-              : null
-          }
-        />
+        {sideCard("Lowest Weekly Score", lowestScore, (entry) => points(entry.points))}
+        {sideCard(
+          "Lowest Winning Score",
+          lowestWinning,
+          (entry) => points(entry.points)
+        )}
+        {matchupCard(
+          "Highest Combined Score",
+          highestCombined,
+          (game) => points(game.combinedPoints),
+          null
+        )}
+        {matchupCard(
+          "Lowest Combined Score",
+          lowestCombined,
+          (game) => points(game.combinedPoints),
+          null
+        )}
       </div>
 
       <div className="record-book-table-grid">
@@ -258,18 +265,11 @@ function GameRecords({ data }) {
                       <strong>{entry.managerName}</strong>
                       <span>{entry.teamName}</span>
                     </td>
-                    <td className="record-book-number">
-                      {points(entry.points)}
-                    </td>
-                    <td>
-                      {entry.outcome} vs {entry.opponentManagerName}
-                      <span>
-                        {points(entry.points)}–{points(entry.opponentPoints)}
-                      </span>
-                    </td>
+                    <td className="record-book-number">{points(entry.points)}</td>
+                    <td>{entryResult(entry)}</td>
                     <td>
                       {entry.season} W{entry.week}
-                      <span>{entry.stage}</span>
+                      {entry.stage !== "Regular Season" && <span>{entry.stage}</span>}
                     </td>
                   </tr>
                 ))}
@@ -282,7 +282,7 @@ function GameRecords({ data }) {
           <div className="subsection-heading">
             <div>
               <p className="eyebrow">Pain index</p>
-              <h3>Top 10 Highest Losing Scores</h3>
+              <h3>Top 10 Highest-Scoring Losses</h3>
             </div>
           </div>
 
@@ -293,7 +293,7 @@ function GameRecords({ data }) {
                   <th>#</th>
                   <th>Manager / Team</th>
                   <th>Score</th>
-                  <th>Lost To</th>
+                  <th>Result</th>
                   <th>When</th>
                 </tr>
               </thead>
@@ -305,18 +305,11 @@ function GameRecords({ data }) {
                       <strong>{entry.managerName}</strong>
                       <span>{entry.teamName}</span>
                     </td>
-                    <td className="record-book-number">
-                      {points(entry.points)}
-                    </td>
-                    <td>
-                      {entry.opponentManagerName}
-                      <span>
-                        {points(entry.points)}–{points(entry.opponentPoints)}
-                      </span>
-                    </td>
+                    <td className="record-book-number">{points(entry.points)}</td>
+                    <td>{entryResult(entry)}</td>
                     <td>
                       {entry.season} W{entry.week}
-                      <span>{entry.stage}</span>
+                      {entry.stage !== "Regular Season" && <span>{entry.stage}</span>}
                     </td>
                   </tr>
                 ))}
@@ -327,9 +320,8 @@ function GameRecords({ data }) {
       </div>
 
       <p className="standings-footnote record-book-footnote">
-        Single-game records use regular-season matchups plus meaningful playoff
-        games: the championship path and official 3rd-place game. Lower
-        placement games such as 5th-place and 7th-place matchups are excluded.
+        Game records include regular-season games, championship-path playoff
+        games and the official 3rd-place game. Lower placement games are excluded.
       </p>
     </>
   );
@@ -348,252 +340,120 @@ function SeasonRecordOwner({ entry }) {
   );
 }
 
+function SeasonRecordOwners({ entries }) {
+  if (!entries.length) return null;
+  if (entries.length === 1) return <SeasonRecordOwner entry={entries[0]} />;
+
+  return (
+    <>
+      <strong>
+        {entries
+          .map((entry) => `${entry.managerLineage} (${entry.season})`)
+          .join(" · ")}
+      </strong>
+      <span>{entries.length}-way tie</span>
+    </>
+  );
+}
+
 function SeasonRecords({ data }) {
+  const seasons = data.seasons;
+  const bestRecord = tiedMax(seasons, (entry) => entry.winPct);
+  const mostWins = tiedMax(seasons, (entry) => entry.h2h.wins);
+  const mostPoints = tiedMax(seasons, (entry) => entry.h2h.pointsFor);
+  const bestPointDiff = tiedMax(seasons, (entry) => entry.pointDiff);
+  const worstRecord = tiedMin(seasons, (entry) => entry.winPct);
+  const fewestPoints = tiedMin(seasons, (entry) => entry.h2h.pointsFor);
+  const worstPointDiff = tiedMin(seasons, (entry) => entry.pointDiff);
+  const noTitle = seasons.filter((entry) => !entry.champion);
+  const mostPointsWithoutTitle = tiedMax(noTitle, (entry) => entry.h2h.pointsFor);
+
+  const seasonCard = ({ label, entries, value, detail }) => (
+    <RecordCard
+      label={label}
+      value={entries[0] ? value(entries[0]) : "—"}
+      owner={<SeasonRecordOwners entries={entries} />}
+      detail={
+        entries.length === 1
+          ? detail?.(entries[0]) || null
+          : entries.length > 1
+            ? "Tied record"
+            : null
+      }
+    />
+  );
+
   return (
     <>
       {data.hasLeagueMedianSeasons && (
         <div className="notice compact-notice record-book-notice">
-          <strong>Season records use actual H2H games.</strong> Seasons that
-          used an extra game against the league median are normalized to their
-          opponent-only record here so different eras remain comparable.
+          <strong>Season records use actual H2H games.</strong> League-median
+          bonus results are excluded here so different eras remain comparable.
           Sleeper&apos;s official record remains available in Season Explorer.
         </div>
       )}
 
       <div className="record-card-grid record-card-grid-primary">
-        <RecordCard
-          label="Best H2H Record"
-          value={
-            data.bestRecord
-              ? `${formatRecord(data.bestRecord.h2h)} • ${formatPct(
-                  data.bestRecord.winPct
-                )}`
-              : "—"
-          }
-          owner={
-            data.bestRecord ? (
-              <SeasonRecordOwner entry={data.bestRecord} />
-            ) : null
-          }
-          detail={data.bestRecord?.finish}
-        />
-
-        <RecordCard
-          label="Most H2H Wins"
-          value={data.mostWins ? data.mostWins.h2h.wins : "—"}
-          owner={
-            data.mostWins ? (
-              <SeasonRecordOwner entry={data.mostWins} />
-            ) : null
-          }
-          detail={
-            data.mostWins
-              ? `${formatRecord(data.mostWins.h2h)} • ${data.mostWins.finish}`
-              : null
-          }
-        />
-
-        <RecordCard
-          label="Most Points For"
-          value={
-            data.mostPoints
-              ? points(data.mostPoints.h2h.pointsFor)
-              : "—"
-          }
-          owner={
-            data.mostPoints ? (
-              <SeasonRecordOwner entry={data.mostPoints} />
-            ) : null
-          }
-          detail={
-            data.mostPoints
-              ? `${points(
-                  data.mostPoints.h2h.pointsFor /
-                    Math.max(1, data.mostPoints.h2h.games)
-                )} PF/G • ${data.mostPoints.finish}`
-              : null
-          }
-        />
-
-        <RecordCard
-          label="Best Point Differential"
-          value={
-            data.bestPointDiff
-              ? signedPoints(data.bestPointDiff.pointDiff)
-              : "—"
-          }
-          owner={
-            data.bestPointDiff ? (
-              <SeasonRecordOwner entry={data.bestPointDiff} />
-            ) : null
-          }
-          detail={
-            data.bestPointDiff
-              ? `${points(data.bestPointDiff.h2h.pointsFor)} PF • ${points(
-                  data.bestPointDiff.h2h.pointsAgainst
-                )} PA`
-              : null
-          }
-        />
+        {seasonCard({
+          label: "Best H2H Record",
+          entries: bestRecord,
+          value: (entry) => `${formatRecord(entry.h2h)} • ${formatPct(entry.winPct)}`,
+          detail: (entry) => entry.finish,
+        })}
+        {seasonCard({
+          label: "Most H2H Wins",
+          entries: mostWins,
+          value: (entry) => entry.h2h.wins,
+          detail: (entry) => `${formatRecord(entry.h2h)} • ${entry.finish}`,
+        })}
+        {seasonCard({
+          label: "Most Points For",
+          entries: mostPoints,
+          value: (entry) => points(entry.h2h.pointsFor),
+          detail: (entry) =>
+            `${points(entry.h2h.pointsFor / Math.max(1, entry.h2h.games))} PF/G • ${entry.finish}`,
+        })}
+        {seasonCard({
+          label: "Best Point Differential",
+          entries: bestPointDiff,
+          value: (entry) => signedPoints(entry.pointDiff),
+          detail: (entry) =>
+            `${points(entry.h2h.pointsFor)} PF • ${points(entry.h2h.pointsAgainst)} PA`,
+        })}
       </div>
 
       <div className="record-card-grid">
-        <RecordCard
-          label="Worst H2H Record"
-          value={
-            data.worstRecord
-              ? `${formatRecord(data.worstRecord.h2h)} • ${formatPct(
-                  data.worstRecord.winPct
-                )}`
-              : "—"
-          }
-          owner={
-            data.worstRecord ? (
-              <SeasonRecordOwner entry={data.worstRecord} />
-            ) : null
-          }
-          detail={data.worstRecord?.finish}
-        />
-
-        <RecordCard
-          label="Fewest Points For"
-          value={
-            data.fewestPoints
-              ? points(data.fewestPoints.h2h.pointsFor)
-              : "—"
-          }
-          owner={
-            data.fewestPoints ? (
-              <SeasonRecordOwner entry={data.fewestPoints} />
-            ) : null
-          }
-          detail={
-            data.fewestPoints
-              ? `${points(
-                  data.fewestPoints.h2h.pointsFor /
-                    Math.max(1, data.fewestPoints.h2h.games)
-                )} PF/G`
-              : null
-          }
-        />
-
-        <RecordCard
-          label="Worst Point Differential"
-          value={
-            data.worstPointDiff
-              ? signedPoints(data.worstPointDiff.pointDiff)
-              : "—"
-          }
-          owner={
-            data.worstPointDiff ? (
-              <SeasonRecordOwner entry={data.worstPointDiff} />
-            ) : null
-          }
-          detail={
-            data.worstPointDiff
-              ? `${points(data.worstPointDiff.h2h.pointsFor)} PF • ${points(
-                  data.worstPointDiff.h2h.pointsAgainst
-                )} PA`
-              : null
-          }
-        />
-
-        <RecordCard
-          label="Most PF Without a Title"
-          value={
-            data.mostPointsWithoutTitle
-              ? points(data.mostPointsWithoutTitle.h2h.pointsFor)
-              : "—"
-          }
-          owner={
-            data.mostPointsWithoutTitle ? (
-              <SeasonRecordOwner entry={data.mostPointsWithoutTitle} />
-            ) : null
-          }
-          detail={
-            data.mostPointsWithoutTitle
-              ? data.mostPointsWithoutTitle.finish
-              : null
-          }
-        />
-      </div>
-
-      <div className="subsection-heading">
-        <div>
-          <p className="eyebrow">Team-season archive</p>
-          <h3>All-Time Season Leaderboard</h3>
-        </div>
-        <span className="muted">
-          Completed seasons only • sorted by H2H win %
-        </span>
-      </div>
-
-      <div className="table-wrap">
-        <table className="record-book-table season-record-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Season</th>
-              <th>Team</th>
-              <th>Manager</th>
-              <th>H2H</th>
-              <th>Win %</th>
-              <th>PF</th>
-              <th>PA</th>
-              <th>Diff</th>
-              <th>Finish</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.leaderboard.map((entry, index) => (
-              <tr key={entry.id}>
-                <td className="rank-cell">{index + 1}</td>
-                <td>
-                  <strong>{entry.season}</strong>
-                </td>
-                <td>{entry.teamName}</td>
-                <td>{entry.managerLineage}</td>
-                <td className="record-cell">
-                  {formatRecord(entry.h2h)}
-                </td>
-                <td>{formatPct(entry.winPct)}</td>
-                <td>{points(entry.h2h.pointsFor)}</td>
-                <td>{points(entry.h2h.pointsAgainst)}</td>
-                <td
-                  className={
-                    entry.pointDiff > 0
-                      ? "positive-record"
-                      : entry.pointDiff < 0
-                        ? "negative-record"
-                        : ""
-                  }
-                >
-                  {signedPoints(entry.pointDiff)}
-                </td>
-                <td>
-                  <span
-                    className={
-                      entry.finish === "Champion"
-                        ? "title-finish"
-                        : entry.finish === "3rd Place"
-                          ? "podium-finish"
-                          : ""
-                    }
-                  >
-                    {entry.finish}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {seasonCard({
+          label: "Worst H2H Record",
+          entries: worstRecord,
+          value: (entry) => `${formatRecord(entry.h2h)} • ${formatPct(entry.winPct)}`,
+          detail: (entry) => entry.finish,
+        })}
+        {seasonCard({
+          label: "Fewest Points For",
+          entries: fewestPoints,
+          value: (entry) => points(entry.h2h.pointsFor),
+          detail: (entry) =>
+            `${points(entry.h2h.pointsFor / Math.max(1, entry.h2h.games))} PF/G`,
+        })}
+        {seasonCard({
+          label: "Worst Point Differential",
+          entries: worstPointDiff,
+          value: (entry) => signedPoints(entry.pointDiff),
+          detail: (entry) =>
+            `${points(entry.h2h.pointsFor)} PF • ${points(entry.h2h.pointsAgainst)} PA`,
+        })}
+        {seasonCard({
+          label: "Most Points Without a Title",
+          entries: mostPointsWithoutTitle,
+          value: (entry) => points(entry.h2h.pointsFor),
+          detail: (entry) => entry.finish,
+        })}
       </div>
 
       <p className="standings-footnote record-book-footnote">
-        Season records deliberately exclude incomplete seasons. Team-season
-        accomplishments remain attached to the franchise season even when
-        ownership changed; the manager column shows the reconciled ownership
-        lineage for that year.
+        Season records use completed seasons and actual opponent H2H results.
+        The complete all-time season standings now live in Season Explorer.
       </p>
     </>
   );
@@ -610,135 +470,187 @@ function CareerOwner({ manager, detail }) {
   );
 }
 
+function CareerOwners({ managers, detail }) {
+  if (!managers.length) return null;
+  if (managers.length === 1) {
+    return <CareerOwner manager={managers[0]} detail={detail(managers[0])} />;
+  }
+
+  return (
+    <>
+      <strong>{managers.map((manager) => manager.displayName).join(" · ")}</strong>
+      <span>{managers.length}-way tie</span>
+    </>
+  );
+}
+
 function ManagerRecords({ data }) {
+  const managers = data.managers;
+  const mostTitles = tiedMax(managers, (manager) => manager.championships);
+  const mostRegularWins = tiedMax(managers, (manager) => manager.regular.wins);
+  const bestWinPool = managers.filter(
+    (manager) => manager.regular.games >= data.bestWinPctMinimumGames
+  );
+  const bestWinPct = tiedMax(bestWinPool, (manager) => manager.winPct);
+  const mostCareerPF = tiedMax(managers, (manager) => manager.regular.pointsFor);
+  const mostPlayoffWins = tiedMax(managers, (manager) => manager.playoffs.wins);
+  const mostFinals = tiedMax(managers, (manager) => manager.finals);
+  const mostPlayoffAppearances = tiedMax(
+    managers,
+    (manager) => manager.playoffAppearances
+  );
+
+  const careerCard = ({ label, entries, value, detail, context }) => (
+    <RecordCard
+      label={label}
+      value={entries[0] ? value(entries[0]) : "—"}
+      owner={
+        <CareerOwners
+          managers={entries}
+          detail={detail || (() => "")}
+        />
+      }
+      context={context}
+      detail={entries.length > 1 ? "Tied record" : null}
+    />
+  );
+
   return (
     <>
       {data.hasLeagueMedianSeasons && (
         <div className="notice compact-notice record-book-notice">
           <strong>Career W/L is H2H only.</strong> League-median bonus results
-          never enter manager career records. Playoff W/L is tracked
-          separately.
+          never enter manager career records. Playoff W/L is tracked separately.
         </div>
       )}
 
       <div className="record-card-grid record-card-grid-primary">
-        <RecordCard
-          label="Most Championships"
-          value={data.mostTitles?.championships ?? "—"}
-          owner={
-            data.mostTitles ? (
-              <CareerOwner
-                manager={data.mostTitles}
-                detail={`${data.mostTitles.finals} finals • ${data.mostTitles.playoffAppearances} playoff appearances`}
-              />
-            ) : null
-          }
-        />
-
-        <RecordCard
-          label="Most Regular-Season Wins"
-          value={data.mostRegularWins?.regular.wins ?? "—"}
-          owner={
-            data.mostRegularWins ? (
-              <CareerOwner
-                manager={data.mostRegularWins}
-                detail={`${formatRecord(
-                  data.mostRegularWins.regular
-                )} • ${formatPct(data.mostRegularWins.winPct)}`}
-              />
-            ) : null
-          }
-        />
-
-        <RecordCard
-          label="Best Career Win %"
-          value={
-            data.bestWinPct
-              ? formatPct(data.bestWinPct.winPct)
-              : "—"
-          }
-          owner={
-            data.bestWinPct ? (
-              <CareerOwner
-                manager={data.bestWinPct}
-                detail={`${formatRecord(
-                  data.bestWinPct.regular
-                )} • ${data.bestWinPct.regular.games} games`}
-              />
-            ) : null
-          }
-          context={`${data.bestWinPctMinimumGames}-game minimum`}
-        />
-
-        <RecordCard
-          label="Most Career Points"
-          value={
-            data.mostCareerPF
-              ? points(data.mostCareerPF.regular.pointsFor)
-              : "—"
-          }
-          owner={
-            data.mostCareerPF ? (
-              <CareerOwner
-                manager={data.mostCareerPF}
-                detail={`${points(
-                  data.mostCareerPF.pointsPerGame
-                )} PF/G`}
-              />
-            ) : null
-          }
-        />
+        {careerCard({
+          label: "Most Championships",
+          entries: mostTitles,
+          value: (manager) => manager.championships,
+          detail: (manager) =>
+            `${manager.finals} finals • ${manager.playoffAppearances} playoff appearances`,
+        })}
+        {careerCard({
+          label: "Most Regular-Season Wins",
+          entries: mostRegularWins,
+          value: (manager) => manager.regular.wins,
+          detail: (manager) =>
+            `${formatRecord(manager.regular)} • ${formatPct(manager.winPct)}`,
+        })}
+        {careerCard({
+          label: "Best Career Win %",
+          entries: bestWinPct,
+          value: (manager) => formatPct(manager.winPct),
+          detail: (manager) =>
+            `${formatRecord(manager.regular)} • ${manager.regular.games} games`,
+          context: `${data.bestWinPctMinimumGames}-game minimum`,
+        })}
+        {careerCard({
+          label: "Most Career Points",
+          entries: mostCareerPF,
+          value: (manager) => points(manager.regular.pointsFor),
+          detail: (manager) => `${points(manager.pointsPerGame)} PF/G`,
+        })}
       </div>
 
       <div className="record-card-grid record-card-grid-three">
-        <RecordCard
-          label="Most Playoff Wins"
-          value={data.mostPlayoffWins?.playoffs.wins ?? "—"}
-          owner={
-            data.mostPlayoffWins ? (
-              <CareerOwner
-                manager={data.mostPlayoffWins}
-                detail={`${formatRecord(
-                  data.mostPlayoffWins.playoffs
-                )} playoff record`}
-              />
-            ) : null
-          }
-        />
-
-        <RecordCard
-          label="Most Finals"
-          value={data.mostFinals?.finals ?? "—"}
-          owner={
-            data.mostFinals ? (
-              <CareerOwner
-                manager={data.mostFinals}
-                detail={`${data.mostFinals.championships} championships`}
-              />
-            ) : null
-          }
-        />
-
-        <RecordCard
-          label="Most Playoff Appearances"
-          value={data.mostPlayoffAppearances?.playoffAppearances ?? "—"}
-          owner={
-            data.mostPlayoffAppearances ? (
-              <CareerOwner
-                manager={data.mostPlayoffAppearances}
-                detail={`${data.mostPlayoffAppearances.finals} finals`}
-              />
-            ) : null
-          }
-        />
-
+        {careerCard({
+          label: "Most Playoff Wins",
+          entries: mostPlayoffWins,
+          value: (manager) => manager.playoffs.wins,
+          detail: (manager) => `${formatRecord(manager.playoffs)} playoff record`,
+        })}
+        {careerCard({
+          label: "Most Finals",
+          entries: mostFinals,
+          value: (manager) => manager.finals,
+          detail: (manager) => `${manager.championships} championships`,
+        })}
+        {careerCard({
+          label: "Most Playoff Appearances",
+          entries: mostPlayoffAppearances,
+          value: (manager) => manager.playoffAppearances,
+          detail: (manager) => `${manager.finals} finals`,
+        })}
       </div>
 
       <p className="standings-footnote record-book-footnote">
         Manager records follow reconciled tenures. A replacement owner inherits
-        the franchise, not the previous manager&apos;s wins, points, titles or
-        playoff results. The complete career standings live in the Managers
-        section.
+        the franchise, not the previous manager&apos;s career statistics. The full
+        career standings live in Managers.
+      </p>
+    </>
+  );
+}
+
+function pairName(pair) {
+  return pair ? `${pair.managerAName} vs. ${pair.managerBName}` : "—";
+}
+
+function RivalryOwners({ pairs }) {
+  if (!pairs.length) return null;
+  if (pairs.length === 1) {
+    return (
+      <>
+        <strong>{pairName(pairs[0])}</strong>
+        <span>League rivalry record</span>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <strong>{pairs.map(pairName).join(" · ")}</strong>
+      <span>{pairs.length}-way tie</span>
+    </>
+  );
+}
+
+function RivalryRecords({ data }) {
+  const mostMeetings = tiedMax(data.rivalries, (pair) => pair.all.games);
+  const playoffPairs = data.rivalries.filter((pair) => pair.playoffs.games > 0);
+  const mostPlayoffMeetings = tiedMax(
+    playoffPairs,
+    (pair) => pair.playoffs.games
+  );
+  const tightest = data.closestSeries;
+
+  return (
+    <>
+      <div className="record-card-grid record-card-grid-three rivalry-record-grid">
+        <RecordCard
+          label="Most Meetings"
+          value={mostMeetings[0]?.all.games ?? "—"}
+          owner={<RivalryOwners pairs={mostMeetings} />}
+          detail={mostMeetings.length > 1 ? "Tied record" : null}
+        />
+
+        <RecordCard
+          label="Tightest Series"
+          value={tightest ? seriesLeaderLabel(tightest, tightest.regular) : "—"}
+          owner={
+            tightest ? (
+              <>
+                <strong>{pairName(tightest)}</strong>
+                <span>{tightest.regular.games} regular-season meetings</span>
+              </>
+            ) : null
+          }
+        />
+
+        <RecordCard
+          label="Most Playoff Meetings"
+          value={mostPlayoffMeetings[0]?.playoffs.games ?? "—"}
+          owner={<RivalryOwners pairs={mostPlayoffMeetings} />}
+          detail={mostPlayoffMeetings.length > 1 ? "Tied record" : null}
+        />
+      </div>
+
+      <p className="standings-footnote record-book-footnote">
+        Rivalry records use actual manager-vs-manager games. Playoff meetings
+        include championship-path games and the official 3rd-place game.
       </p>
     </>
   );
@@ -746,6 +658,7 @@ function ManagerRecords({ data }) {
 
 export default function RecordBook({ almanac }) {
   const data = useMemo(() => buildRecordBook(almanac), [almanac]);
+  const rivalryData = useMemo(() => buildRivalryMetrics(almanac), [almanac]);
   const [tab, setTab] = useState("games");
 
   return (
@@ -755,12 +668,6 @@ export default function RecordBook({ almanac }) {
           <p className="eyebrow">Record book</p>
           <h2>League Records & Milestones</h2>
         </div>
-
-        <span className="muted">
-          {data.games.matchupGames.length} competitive games •{" "}
-          {data.seasons.seasons.length} completed team-seasons •{" "}
-          {data.careers.managers.length} primary managers
-        </span>
       </div>
 
       <div className="record-book-tabs" role="tablist" aria-label="Record book">
@@ -784,12 +691,20 @@ export default function RecordBook({ almanac }) {
         >
           MANAGER RECORDS
         </button>
+
+        <button
+          className={tab === "rivalries" ? "active" : ""}
+          onClick={() => setTab("rivalries")}
+        >
+          RIVALRY RECORDS
+        </button>
       </div>
 
       <div className="record-book-body">
         {tab === "games" && <GameRecords data={data.games} />}
         {tab === "seasons" && <SeasonRecords data={data.seasons} />}
         {tab === "careers" && <ManagerRecords data={data.careers} />}
+        {tab === "rivalries" && <RivalryRecords data={rivalryData} />}
       </div>
     </section>
   );

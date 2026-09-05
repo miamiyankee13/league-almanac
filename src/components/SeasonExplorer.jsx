@@ -3,6 +3,12 @@ import {
   getMeaningfulPlayoffNodes,
   getPostseasonFinishForRoster,
 } from "../domain/playoffUtils";
+import { getMeaningfulCompetitiveGames } from "../domain/gameUtils";
+import {
+  buildRecordBook,
+  formatPct,
+  formatRecord,
+} from "../domain/recordBookMetrics";
 
 function managerName(almanac, managerId) {
   if (!managerId) return null;
@@ -117,25 +123,22 @@ function playoffResult(almanac, seasonYear, rosterId) {
   return getPostseasonFinishForRoster(almanac, seasonYear, rosterId);
 }
 
-function gameSides(game) {
-  return [game.teamA, game.teamB];
-}
-
-function allSeasonSides(almanac, seasonYear) {
-  return almanac.games
-    .filter((game) => game.season === seasonYear)
-    .flatMap((game) =>
-      gameSides(game).map((side) => ({
-        ...side,
-        week: game.week,
-        phase: game.phase,
-        game,
-      }))
-    );
+function seasonCompetitiveGames(almanac, seasonYear) {
+  return getMeaningfulCompetitiveGames(almanac).filter(
+    (game) => game.season === seasonYear
+  );
 }
 
 function highestScore(almanac, seasonYear) {
-  const sides = allSeasonSides(almanac, seasonYear);
+  const sides = seasonCompetitiveGames(almanac, seasonYear).flatMap((game) =>
+    [game.teamA, game.teamB].map((side) => ({
+      ...side,
+      week: game.week,
+      phase: game.phase,
+      game,
+    }))
+  );
+
   if (!sides.length) return null;
 
   return sides.reduce((best, side) =>
@@ -144,7 +147,10 @@ function highestScore(almanac, seasonYear) {
 }
 
 function marginRecord(almanac, seasonYear, mode) {
-  const games = almanac.games.filter((game) => game.season === seasonYear);
+  const games = seasonCompetitiveGames(almanac, seasonYear).filter(
+    (game) => Number(game.teamA.points) !== Number(game.teamB.points)
+  );
+
   if (!games.length) return null;
 
   return games.reduce((best, game) => {
@@ -179,43 +185,36 @@ function winnerLoser(game) {
   return { winner: game.teamB, loser: game.teamA, isTie: false };
 }
 
-function matchupResult(almanac, seasonYear, game) {
-  if (!game) return null;
+function sideManagerLabel(almanac, seasonYear, side) {
+  if (!side) return "—";
+  return (
+    managerName(almanac, side.managerId) ||
+    teamNameForRoster(almanac, seasonYear, side.rosterId)
+  );
+}
+
+function matchupReceipt(almanac, seasonYear, game) {
+  if (!game) return "—";
 
   const { winner, loser, isTie } = winnerLoser(game);
 
   if (isTie) {
-    return {
-      headline: "Tie",
-      detail: `${gameTeamLabel(almanac, seasonYear, game.teamA)} ${formatScore(
-        game.teamA.points
-      )} – ${formatScore(game.teamB.points)} ${gameTeamLabel(
-        almanac,
-        seasonYear,
-        game.teamB
-      )}`,
-    };
-  }
-
-  return {
-    headline: `${gameTeamLabel(almanac, seasonYear, winner)} won`,
-    detail: `${gameTeamLabel(almanac, seasonYear, winner)} ${formatScore(
-      winner.points
-    )} – ${formatScore(loser.points)} ${gameTeamLabel(
+    return `Week ${game.week} — ${sideManagerLabel(
       almanac,
       seasonYear,
-      loser
-    )}`,
-  };
-}
+      game.teamA
+    )} tied ${sideManagerLabel(almanac, seasonYear, game.teamB)} ${formatScore(
+      game.teamA.points
+    )}–${formatScore(game.teamB.points)}`;
+  }
 
-function gameTeamLabel(almanac, seasonYear, side) {
-  if (!side) return "—";
-  const team = teamForRoster(almanac, seasonYear, side.rosterId);
-  const manager = managerName(almanac, side.managerId);
-
-  if (manager) return `${manager} • ${team?.teamName || `Roster ${side.rosterId}`}`;
-  return team?.teamName || `Roster ${side.rosterId}`;
+  return `Week ${game.week} — ${sideManagerLabel(
+    almanac,
+    seasonYear,
+    winner
+  )} def. ${sideManagerLabel(almanac, seasonYear, loser)} ${formatScore(
+    winner.points
+  )}–${formatScore(loser.points)}`;
 }
 
 function playoffGameFromNode(almanac, season, node) {
@@ -236,7 +235,7 @@ function playoffGameFromNode(almanac, season, node) {
 }
 
 function roundLabel(round, maxRound) {
-  if (Number(round) === Number(maxRound)) return "Final Round";
+  if (Number(round) === Number(maxRound)) return "Championship Round";
   if (Number(round) === Number(maxRound) - 1) return "Semifinals";
   if (Number(round) === 1) return "Opening Round";
   return `Round ${round}`;
@@ -255,10 +254,23 @@ function scoreForRoster(game, rosterId) {
   return null;
 }
 
+function managerForRosterInGame(almanac, game, rosterId) {
+  if (!game || rosterId == null) return null;
+  const side = [game.teamA, game.teamB].find(
+    (candidate) => candidate.rosterId === String(rosterId)
+  );
+  return side ? managerName(almanac, side.managerId) : null;
+}
+
 function formatScore(value) {
   return value == null || Number.isNaN(Number(value))
     ? "—"
     : Number(value).toFixed(2);
+}
+
+function signedPoints(value) {
+  const n = Number(value || 0);
+  return `${n > 0 ? "+" : ""}${n.toFixed(2)}`;
 }
 
 export default function SeasonExplorer({ almanac, onReviewOwnership }) {
@@ -271,6 +283,11 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
   const season = almanac.seasons.find((item) => item.season === selectedSeason);
   const teams = almanac.seasonTeams.filter(
     (team) => team.season === selectedSeason
+  );
+
+  const seasonArchive = useMemo(
+    () => buildRecordBook(almanac).seasons.leaderboard,
+    [almanac]
   );
 
   const h2hByRoster = useMemo(
@@ -331,14 +348,13 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
   const closest = marginRecord(almanac, selectedSeason, "min");
   const blowout = marginRecord(almanac, selectedSeason, "max");
 
-  const playoffNodes = getMeaningfulPlayoffNodes(
-    almanac,
-    selectedSeason
-  );
+  const playoffNodes = getMeaningfulPlayoffNodes(almanac, selectedSeason);
 
   const maxRound = playoffNodes.length
     ? Math.max(...playoffNodes.map((node) => Number(node.round || 0)))
     : 0;
+
+  const isComplete = season?.status === "complete";
 
   return (
     <section className="panel season-explorer">
@@ -362,17 +378,21 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
       </div>
 
       <div className="season-meta-row">
-        <span>{season?.status === "complete" ? "Complete" : "In progress"}</span>
-        <span>Playoffs start Week {season?.playoffWeekStart || "—"}</span>
-        <span>Last scored Week {season?.lastScoredLeg || 0}</span>
+        <span>{isComplete ? "Complete" : "In progress"}</span>
+        <span>
+          Playoffs {isComplete ? "began" : "begin"} Week {season?.playoffWeekStart || "—"}
+        </span>
+        {!isComplete && (
+          <span>Last scored Week {season?.lastScoredLeg || 0}</span>
+        )}
         {median && <span className="median-chip">League median enabled</span>}
       </div>
 
       {median && (
         <div className="notice compact-notice">
-          <strong>Two records are intentionally separated.</strong> Official
-          record is Sleeper&apos;s standings record and may include the extra
-          median game. H2H record counts only actual opponent matchups.
+          <strong>Official and H2H records are separated.</strong> Sleeper&apos;s
+          official standings may include the extra median game; H2H counts only
+          actual opponent matchups.
         </div>
       )}
 
@@ -418,7 +438,7 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
             {champion
               ? managerName(almanac, champion.winner.managerId) ||
                 champion.winner.teamName
-              : season?.status === "complete"
+              : isComplete
                 ? "Unresolved"
                 : "TBD"}
           </strong>
@@ -432,7 +452,7 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
         </div>
 
         <div className="season-highlight">
-          <span>Standings Leader</span>
+          <span>{isComplete ? "Regular-Season Leader" : "Current Leader"}</span>
           <strong>
             {standingsLeader
               ? ownershipLabel(almanac, standingsLeader.team)
@@ -450,9 +470,7 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
         <div className="season-highlight">
           <span>Most Points For</span>
           <strong>
-            {pointsLeader
-              ? ownershipLabel(almanac, pointsLeader.team)
-              : "—"}
+            {pointsLeader ? ownershipLabel(almanac, pointsLeader.team) : "—"}
           </strong>
           <small>
             {pointsLeader
@@ -485,12 +503,8 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
           {closest ? (
             <>
               <strong>{closest.margin.toFixed(2)} pts</strong>
-              <small className="record-game-winner">
-                Week {closest.game.week} •{" "}
-                {matchupResult(almanac, selectedSeason, closest.game)?.headline}
-              </small>
-              <small className="record-game-result">
-                {matchupResult(almanac, selectedSeason, closest.game)?.detail}
+              <small className="record-game-result receipt-line">
+                {matchupReceipt(almanac, selectedSeason, closest.game)}
               </small>
             </>
           ) : (
@@ -503,12 +517,8 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
           {blowout ? (
             <>
               <strong>{blowout.margin.toFixed(2)} pts</strong>
-              <small className="record-game-winner">
-                Week {blowout.game.week} •{" "}
-                {matchupResult(almanac, selectedSeason, blowout.game)?.headline}
-              </small>
-              <small className="record-game-result">
-                {matchupResult(almanac, selectedSeason, blowout.game)?.detail}
+              <small className="record-game-result receipt-line">
+                {matchupReceipt(almanac, selectedSeason, blowout.game)}
               </small>
             </>
           ) : (
@@ -547,9 +557,6 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
                 <td className="rank-cell">{index + 1}</td>
                 <td>
                   <strong className="team-cell-name">{team.teamName}</strong>
-                  <span className="team-cell-roster">
-                    Roster {team.rosterId}
-                  </span>
                 </td>
                 <td
                   className={
@@ -565,9 +572,7 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
                   {ownershipLabel(almanac, team)}
                 </td>
                 <td className="record-cell">{recordText(official)}</td>
-                {median && (
-                  <td className="record-cell">{recordText(h2h)}</td>
-                )}
+                {median && <td className="record-cell">{recordText(h2h)}</td>}
                 <td>{Number(official.pointsFor || 0).toFixed(2)}</td>
                 <td>
                   {official.pointsAgainst == null
@@ -582,9 +587,8 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
       </div>
 
       <p className="standings-footnote">
-        Display order uses record, then points for as a deterministic Almanac
-        sort. It is not labeled as official historical playoff seed until
-        Sleeper&apos;s exact season-specific tiebreaker behavior is modeled.
+        Standings are ordered by record, then points for. Historical playoff
+        seeding may differ where league-specific tiebreakers applied.
       </p>
 
       <div className="subsection-heading playoff-heading">
@@ -601,93 +605,91 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
 
       {playoffNodes.length > 0 ? (
         <div className="playoff-rounds">
-          {Array.from(
-            new Set(playoffNodes.map((node) => Number(node.round)))
-          ).map((round) => {
-            const roundNodes = playoffNodes.filter(
-              (node) => Number(node.round) === round
-            );
+          {Array.from(new Set(playoffNodes.map((node) => Number(node.round)))).map(
+            (round) => {
+              const roundNodes = playoffNodes.filter(
+                (node) => Number(node.round) === round
+              );
 
-            return (
-              <div className="playoff-round" key={round}>
-                <div className="playoff-round-title">
-                  {roundLabel(round, maxRound)}
-                </div>
+              return (
+                <div className="playoff-round" key={round}>
+                  <div className="playoff-round-title">
+                    {roundLabel(round, maxRound)}
+                  </div>
 
-                <div className="playoff-game-list">
-                  {roundNodes.map((node) => {
-                    const actualGame = playoffGameFromNode(
-                      almanac,
-                      season,
-                      node
-                    );
+                  <div className="playoff-game-list">
+                    {roundNodes.map((node) => {
+                      const actualGame = playoffGameFromNode(almanac, season, node);
+                      const roster1 = node.team1RosterId;
+                      const roster2 = node.team2RosterId;
+                      const score1 = scoreForRoster(actualGame, roster1);
+                      const score2 = scoreForRoster(actualGame, roster2);
+                      const manager1 = managerForRosterInGame(
+                        almanac,
+                        actualGame,
+                        roster1
+                      );
+                      const manager2 = managerForRosterInGame(
+                        almanac,
+                        actualGame,
+                        roster2
+                      );
 
-                    const roster1 = node.team1RosterId;
-                    const roster2 = node.team2RosterId;
+                      const team1Won =
+                        node.isResolved &&
+                        String(node.winnerRosterId) === String(roster1);
+                      const team2Won =
+                        node.isResolved &&
+                        String(node.winnerRosterId) === String(roster2);
 
-                    const score1 = scoreForRoster(actualGame, roster1);
-                    const score2 = scoreForRoster(actualGame, roster2);
-
-                    const team1Won =
-                      node.isResolved &&
-                      String(node.winnerRosterId) === String(roster1);
-                    const team2Won =
-                      node.isResolved &&
-                      String(node.winnerRosterId) === String(roster2);
-
-                    return (
-                      <article
-                        className={`playoff-game-card ${
-                          Number(node.placement) === 1
-                            ? "championship-game-card"
-                            : ""
-                        }`}
-                        key={node.playoffGameId}
-                      >
-                        <div className="playoff-game-label">
-                          {playoffMatchLabel(node, maxRound)}
-                        </div>
-
-                        <div
-                          className={`playoff-team-row ${
-                            team1Won ? "winner" : ""
+                      return (
+                        <article
+                          className={`playoff-game-card ${
+                            Number(node.placement) === 1
+                              ? "championship-game-card"
+                              : ""
                           }`}
+                          key={node.playoffGameId}
                         >
-                          <span>
-                            {teamNameForRoster(
-                              almanac,
-                              selectedSeason,
-                              roster1
-                            )}
-                          </span>
-                          <strong>{formatScore(score1)}</strong>
-                        </div>
+                          <div className="playoff-game-label">
+                            {playoffMatchLabel(node, maxRound)}
+                          </div>
 
-                        <div
-                          className={`playoff-team-row ${
-                            team2Won ? "winner" : ""
-                          }`}
-                        >
-                          <span>
-                            {teamNameForRoster(
-                              almanac,
-                              selectedSeason,
-                              roster2
-                            )}
-                          </span>
-                          <strong>{formatScore(score2)}</strong>
-                        </div>
+                          <div
+                            className={`playoff-team-row ${team1Won ? "winner" : ""}`}
+                          >
+                            <div className="playoff-team-identity">
+                              <span>
+                                {teamNameForRoster(almanac, selectedSeason, roster1)}
+                              </span>
+                              {manager1 && <small>{manager1}</small>}
+                            </div>
+                            <strong>{formatScore(score1)}</strong>
+                          </div>
 
-                        {!node.isResolved && (
-                          <div className="playoff-pending">Not yet resolved</div>
-                        )}
-                      </article>
-                    );
-                  })}
+                          <div
+                            className={`playoff-team-row ${team2Won ? "winner" : ""}`}
+                          >
+                            <div className="playoff-team-identity">
+                              <span>
+                                {teamNameForRoster(almanac, selectedSeason, roster2)}
+                              </span>
+                              {manager2 && <small>{manager2}</small>}
+                            </div>
+                            <strong>{formatScore(score2)}</strong>
+                          </div>
+
+                          {!node.isResolved && (
+                            <div className="playoff-pending">Not yet resolved</div>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            }
+          )}
         </div>
       ) : (
         <div className="empty-state">
@@ -697,11 +699,82 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
 
       {playoffNodes.length > 0 && (
         <p className="standings-footnote playoff-footnote">
-          Playoff history and manager playoff records include championship-path
-          games plus the official 3rd-place game. Fifth-place, seventh-place
-          and other lower post-elimination placement games are excluded.
+          Playoff history includes championship-path games plus the official
+          3rd-place game. Lower placement games are excluded.
         </p>
       )}
+
+      <div className="subsection-heading season-archive-heading">
+        <div>
+          <p className="eyebrow">All-time seasons</p>
+          <h3>Season Leaderboard</h3>
+        </div>
+        <span className="muted">Completed seasons • sorted by H2H win %</span>
+      </div>
+
+      <div className="table-wrap">
+        <table className="record-book-table season-record-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Season</th>
+              <th>Team</th>
+              <th>Manager</th>
+              <th>H2H</th>
+              <th>Win %</th>
+              <th>PF</th>
+              <th>PA</th>
+              <th>Diff</th>
+              <th>Finish</th>
+            </tr>
+          </thead>
+          <tbody>
+            {seasonArchive.map((entry, index) => (
+              <tr key={entry.id}>
+                <td className="rank-cell">{index + 1}</td>
+                <td>
+                  <strong>{entry.season}</strong>
+                </td>
+                <td>{entry.teamName}</td>
+                <td>{entry.managerLineage}</td>
+                <td className="record-cell">{formatRecord(entry.h2h)}</td>
+                <td>{formatPct(entry.winPct)}</td>
+                <td>{formatScore(entry.h2h.pointsFor)}</td>
+                <td>{formatScore(entry.h2h.pointsAgainst)}</td>
+                <td
+                  className={
+                    entry.pointDiff > 0
+                      ? "positive-record"
+                      : entry.pointDiff < 0
+                        ? "negative-record"
+                        : ""
+                  }
+                >
+                  {signedPoints(entry.pointDiff)}
+                </td>
+                <td>
+                  <span
+                    className={
+                      entry.finish === "Champion"
+                        ? "title-finish"
+                        : entry.finish === "3rd Place"
+                          ? "podium-finish"
+                          : ""
+                    }
+                  >
+                    {entry.finish}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="standings-footnote">
+        All-time season rankings use completed seasons and actual opponent H2H
+        records so league-median eras remain comparable.
+      </p>
     </section>
   );
 }

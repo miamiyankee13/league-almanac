@@ -1,0 +1,203 @@
+/* Phase 2.5 — Almanac polish pass
+   Loaded after index.css so these rules only override the audited areas. */
+
+.summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.season-tabs {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  max-width: min(58vw, 720px);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.season-tabs button {
+  flex: 0 0 auto;
+}
+
+.receipt-line {
+  margin-top: 6px !important;
+  color: #a0afc0 !important;
+  font-size: 10px !important;
+  line-height: 1.45 !important;
+}
+
+.playoff-team-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.playoff-team-identity > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playoff-team-identity > small {
+  color: #6f829a;
+  font-size: 9px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playoff-team-row.winner .playoff-team-identity > small {
+  color: #9fb0c4;
+}
+
+.season-archive-heading {
+  margin-top: 28px;
+}
+
+.manager-story-grid-four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.rivalry-browser-clean {
+  margin-top: 8px;
+}
+
+.rivalry-focus-label {
+  margin: 2px 0 9px;
+  color: #8da0b7;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.rivalry-list-clean {
+  gap: 7px;
+}
+
+.rivalry-compact-row-clean {
+  grid-template-columns: minmax(0, 1fr) auto 18px;
+  gap: 16px;
+  padding: 12px 13px;
+}
+
+.rivalry-compact-main-clean strong {
+  font-size: 13px;
+}
+
+.rivalry-compact-main-clean .rivalry-series-line {
+  margin-top: 4px;
+  color: #aab8c9;
+  font-size: 10px;
+}
+
+.rivalry-compact-main-clean .rivalry-latest-line {
+  margin-top: 5px;
+  color: #71849b;
+  font-size: 9px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.rivalry-compact-counts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  color: #6f8298;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.rivalry-compact-counts strong {
+  color: #b8c5d4;
+  font-size: 10px;
+}
+
+.rivalry-profile-metrics-five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.rivalry-profile-metrics-five > div:nth-child(4) strong,
+.rivalry-profile-metrics-five > div:nth-child(5) strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.record-card-owner strong,
+.record-card-owner span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.rivalry-record-grid .record-card-value {
+  font-size: 19px;
+  line-height: 1.15;
+}
+
+@media (max-width: 1040px) {
+  .manager-story-grid-four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rivalry-profile-metrics-five {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rivalry-profile-metrics-five > div:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .season-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .season-tabs {
+    justify-content: flex-start;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .rivalry-compact-row-clean {
+    grid-template-columns: minmax(0, 1fr) 18px;
+  }
+
+  .rivalry-compact-counts {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    align-items: flex-start;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .rivalry-row-chevron {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 620px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-story-grid-four,
+  .rivalry-profile-metrics-five {
+    grid-template-columns: 1fr;
+  }
+
+  .rivalry-profile-metrics-five > div:last-child {
+    grid-column: auto;
+  }
+}

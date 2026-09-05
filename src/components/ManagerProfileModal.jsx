@@ -13,13 +13,11 @@ function seasonRecordLabel(season) {
   )} PF`;
 }
 
-function seasonDescriptor(season) {
-  const franchise = season.franchiseNumber
-    ? `Franchise ${season.franchiseNumber}`
-    : "Franchise";
-
-  if (season.teamName) return `${franchise} • ${season.teamName}`;
-  return franchise;
+function matchupDetail(matchup) {
+  if (!matchup) return "Not enough meeting history";
+  return `${formatManagerRecord(matchup)} in ${matchup.games} meeting${
+    matchup.games === 1 ? "" : "s"
+  }`;
 }
 
 export default function ManagerProfileModal({ manager, onClose }) {
@@ -47,7 +45,10 @@ export default function ManagerProfileModal({ manager, onClose }) {
             <div className="manager-profile-subtitle">
               <span>{activeLabel}</span>
               <span>Joined {manager.joinSeason || "—"}</span>
-              <span>{manager.primarySeasonCount} season{manager.primarySeasonCount === 1 ? "" : "s"}</span>
+              <span>
+                {manager.primarySeasonCount} season
+                {manager.primarySeasonCount === 1 ? "" : "s"}
+              </span>
             </div>
           </div>
 
@@ -91,7 +92,7 @@ export default function ManagerProfileModal({ manager, onClose }) {
           </div>
         </div>
 
-        <div className="manager-story-grid">
+        <div className="manager-story-grid manager-story-grid-four">
           <article>
             <span>Best Season</span>
             <strong>{manager.bestSeason?.season || "—"}</strong>
@@ -113,13 +114,15 @@ export default function ManagerProfileModal({ manager, onClose }) {
           </article>
 
           <article>
-            <span>Most-Faced Opponent</span>
-            <strong>{manager.archrival?.displayName || "—"}</strong>
-            <small>
-              {manager.archrival
-                ? `${formatManagerRecord(manager.archrival)} in ${manager.archrival.games} meetings`
-                : "No opponent history yet"}
-            </small>
+            <span>Toughest Matchup</span>
+            <strong>{manager.toughestMatchup?.displayName || "—"}</strong>
+            <small>{matchupDetail(manager.toughestMatchup)}</small>
+          </article>
+
+          <article>
+            <span>Best Matchup</span>
+            <strong>{manager.bestMatchup?.displayName || "—"}</strong>
+            <small>{matchupDetail(manager.bestMatchup)}</small>
           </article>
         </div>
 
@@ -136,7 +139,7 @@ export default function ManagerProfileModal({ manager, onClose }) {
             <thead>
               <tr>
                 <th>Season</th>
-                <th>Franchise / Team</th>
+                <th>Team</th>
                 <th>Tenure</th>
                 <th>H2H</th>
                 <th>Win %</th>
@@ -148,20 +151,24 @@ export default function ManagerProfileModal({ manager, onClose }) {
             <tbody>
               {manager.seasons.map((season) => (
                 <tr key={season.key}>
-                  <td><strong>{season.season}</strong></td>
+                  <td>
+                    <strong>{season.season}</strong>
+                  </td>
                   <td>
                     <strong className="manager-season-team">
-                      {seasonDescriptor(season)}
+                      {season.teamName || "—"}
                     </strong>
                   </td>
                   <td>{season.tenureLabel || "—"}</td>
                   <td>{formatManagerRecord(season.regular)}</td>
-                  <td>{formatManagerWinPct(
-                    season.regular.games
-                      ? (season.regular.wins + season.regular.ties * 0.5) /
-                          season.regular.games
-                      : 0
-                  )}</td>
+                  <td>
+                    {formatManagerWinPct(
+                      season.regular.games
+                        ? (season.regular.wins + season.regular.ties * 0.5) /
+                            season.regular.games
+                        : 0
+                    )}
+                  </td>
                   <td>{formatPoints(season.regular.pointsFor)}</td>
                   <td>
                     {season.playoffAppearance
@@ -188,11 +195,10 @@ export default function ManagerProfileModal({ manager, onClose }) {
         </div>
 
         <div className="manager-profile-note">
-          Career H2H is regular-season opponent record only. Playoff record is
-          tracked separately and counts championship-path games plus the official
-          3rd-place game. Fifth-place, seventh-place and other lower placement
-          games are excluded. League-median bonus games are also excluded from
-          manager-vs-manager records.
+          Career records use actual head-to-head regular-season games. Playoff
+          records are tracked separately and include championship-path games plus
+          the official 3rd-place game. League-median bonus results are excluded
+          from manager-vs-manager records.
         </div>
       </section>
     </div>

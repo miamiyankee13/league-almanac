@@ -170,6 +170,46 @@ function compareWorst(a, b) {
   return a.regular.pointsFor - b.regular.pointsFor;
 }
 
+function matchupSummary(statsByManager, opponentEntries, mode) {
+  if (!opponentEntries.length) return null;
+
+  const atLeastThree = opponentEntries.filter(([, record]) => record.games >= 3);
+  const atLeastTwo = opponentEntries.filter(([, record]) => record.games >= 2);
+  const pool = atLeastThree.length ? atLeastThree : atLeastTwo;
+
+  if (!pool.length) return null;
+
+  const sorted = [...pool].sort((a, b) => {
+    const aPct = winPct(a[1]);
+    const bPct = winPct(b[1]);
+
+    if (Math.abs(aPct - bPct) > 1e-9) {
+      return mode === "best" ? bPct - aPct : aPct - bPct;
+    }
+
+    if (b[1].games !== a[1].games) return b[1].games - a[1].games;
+
+    if (mode === "best") {
+      if (b[1].wins !== a[1].wins) return b[1].wins - a[1].wins;
+      return (b[1].pointsFor - b[1].pointsAgainst) -
+        (a[1].pointsFor - a[1].pointsAgainst);
+    }
+
+    if (a[1].wins !== b[1].wins) return a[1].wins - b[1].wins;
+    return (a[1].pointsFor - a[1].pointsAgainst) -
+      (b[1].pointsFor - b[1].pointsAgainst);
+  });
+
+  const [opponentId, record] = sorted[0];
+
+  return {
+    managerId: opponentId,
+    displayName: statsByManager.get(opponentId)?.displayName || opponentId,
+    ...record,
+    winPct: winPct(record),
+  };
+}
+
 export function buildManagerMetrics(almanac) {
   const latestSeason = almanac.seasons.at(-1)?.season || null;
   const seasonByYear = new Map(
@@ -208,6 +248,8 @@ export function buildManagerMetrics(almanac) {
       bestSeason: null,
       worstSeason: null,
       archrival: null,
+      toughestMatchup: null,
+      bestMatchup: null,
       _seasonMap: new Map(),
       _opponents: new Map(),
     });
@@ -382,15 +424,18 @@ export function buildManagerMetrics(almanac) {
       ? [...playedSeasons].sort(compareWorst)[0]
       : null;
 
-    const rivalEntries = [...stats._opponents.entries()]
-      .filter(([opponentId]) => statsByManager.has(opponentId))
-      .sort((a, b) => {
-        if (b[1].games !== a[1].games) return b[1].games - a[1].games;
-        return Math.abs(b[1].wins - b[1].losses) - Math.abs(a[1].wins - a[1].losses);
-      });
+    const rivalEntries = [...stats._opponents.entries()].filter(
+      ([opponentId]) => statsByManager.has(opponentId)
+    );
 
     if (rivalEntries.length) {
-      const [opponentId, record] = rivalEntries[0];
+      const mostFaced = [...rivalEntries].sort((a, b) => {
+        if (b[1].games !== a[1].games) return b[1].games - a[1].games;
+        return Math.abs(b[1].wins - b[1].losses) -
+          Math.abs(a[1].wins - a[1].losses);
+      })[0];
+
+      const [opponentId, record] = mostFaced;
       stats.archrival = {
         managerId: opponentId,
         displayName:
@@ -398,6 +443,17 @@ export function buildManagerMetrics(almanac) {
         ...record,
       };
     }
+
+    stats.toughestMatchup = matchupSummary(
+      statsByManager,
+      rivalEntries,
+      "toughest"
+    );
+    stats.bestMatchup = matchupSummary(
+      statsByManager,
+      rivalEntries,
+      "best"
+    );
 
     stats.winPct = winPct(stats.regular);
     stats.playoffWinPct = winPct(stats.playoffs);

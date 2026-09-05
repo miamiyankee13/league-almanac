@@ -12,11 +12,33 @@ function margin(value) {
   return Number(value || 0).toFixed(2);
 }
 
+function displayOrder(rivalry, focusManagerId) {
+  if (focusManagerId === rivalry.managerBId) {
+    return {
+      primaryId: rivalry.managerBId,
+      primaryName: rivalry.managerBName,
+      secondaryId: rivalry.managerAId,
+      secondaryName: rivalry.managerAName,
+      primaryIsA: false,
+    };
+  }
+
+  return {
+    primaryId: rivalry.managerAId,
+    primaryName: rivalry.managerAName,
+    secondaryId: rivalry.managerBId,
+    secondaryName: rivalry.managerBName,
+    primaryIsA: true,
+  };
+}
+
 function meetingResult(meeting) {
   if (!meeting) return "—";
 
   if (!meeting.winnerManagerId) {
-    return `Tied ${points(meeting.pointsA)}-${points(meeting.pointsB)}`;
+    return `${meeting.managerAName} tied ${meeting.managerBName} ${points(
+      meeting.pointsA
+    )}–${points(meeting.pointsB)}`;
   }
 
   const winnerIsA = meeting.winnerManagerId === meeting.managerAId;
@@ -25,12 +47,27 @@ function meetingResult(meeting) {
   const winnerPoints = winnerIsA ? meeting.pointsA : meeting.pointsB;
   const loserPoints = winnerIsA ? meeting.pointsB : meeting.pointsA;
 
-  return `${winnerName} def. ${loserName} ${points(winnerPoints)}-${points(
+  return `${winnerName} def. ${loserName} ${points(winnerPoints)}–${points(
     loserPoints
   )}`;
 }
 
-function storyCard(label, meeting) {
+function meetingTeamContext(meeting, order) {
+  if (!meeting) return "—";
+
+  if (!meeting.winnerManagerId) {
+    return order.primaryIsA
+      ? `${meeting.teamAName} vs. ${meeting.teamBName}`
+      : `${meeting.teamBName} vs. ${meeting.teamAName}`;
+  }
+
+  const winnerIsA = meeting.winnerManagerId === meeting.managerAId;
+  return winnerIsA
+    ? `${meeting.teamAName} vs. ${meeting.teamBName}`
+    : `${meeting.teamBName} vs. ${meeting.teamAName}`;
+}
+
+function storyCard(label, meeting, value) {
   if (!meeting) {
     return (
       <article>
@@ -44,9 +81,9 @@ function storyCard(label, meeting) {
   return (
     <article>
       <span>{label}</span>
-      <strong>{margin(meeting.margin)} pts</strong>
+      <strong>{value}</strong>
       <small>
-        {meeting.season} W{meeting.week} • {meetingResult(meeting)}
+        {meeting.season} W{meeting.week} — {meetingResult(meeting)}
       </small>
     </article>
   );
@@ -62,24 +99,32 @@ function playoffSeriesLabel(pair, breakdown) {
   return seriesLeaderLabel(pair, breakdown.playoffs);
 }
 
-export default function RivalryProfileModal({ rivalry, onClose }) {
+function pointDifferentialLabel(rivalry) {
+  const diff = Number(rivalry.all.pointsA || 0) - Number(rivalry.all.pointsB || 0);
+
+  if (Math.abs(diff) < 1e-9) return "Even";
+
+  if (diff > 0) return `${rivalry.managerAName} +${points(diff)}`;
+  return `${rivalry.managerBName} +${points(Math.abs(diff))}`;
+}
+
+export default function RivalryProfileModal({
+  rivalry,
+  focusManagerId = null,
+  onClose,
+}) {
   if (!rivalry) return null;
 
-  const recordA = recordForManager(
+  const order = displayOrder(rivalry, focusManagerId);
+  const primaryRecord = recordForManager(
     rivalry,
     rivalry.regular,
-    rivalry.managerAId
+    order.primaryId
   );
-  const recordB = recordForManager(
+  const secondaryRecord = recordForManager(
     rivalry,
     rivalry.regular,
-    rivalry.managerBId
-  );
-
-  const playoffA = recordForManager(
-    rivalry,
-    rivalry.playoffs,
-    rivalry.managerAId
+    order.secondaryId
   );
 
   const firstMeetingSeason = rivalry.firstMeeting?.season || "—";
@@ -91,15 +136,15 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={`${rivalry.managerAName} versus ${rivalry.managerBName} rivalry`}
+        aria-label={`${order.primaryName} versus ${order.secondaryName} rivalry`}
       >
         <div className="manager-profile-header">
           <div>
             <p className="eyebrow">Rivalry dossier</p>
             <h2>
-              {rivalry.managerAName}
+              {order.primaryName}
               <span className="rivalry-vs"> vs. </span>
-              {rivalry.managerBName}
+              {order.secondaryName}
             </h2>
 
             <div className="manager-profile-subtitle">
@@ -128,31 +173,29 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
 
           <div className="rivalry-series-split">
             <div>
-              <span>{rivalry.managerAName}</span>
-              <strong>{formatRivalryRecord(recordA)}</strong>
+              <span>{order.primaryName}</span>
+              <strong>{formatRivalryRecord(primaryRecord)}</strong>
             </div>
             <div className="rivalry-series-divider">VS</div>
             <div>
-              <span>{rivalry.managerBName}</span>
-              <strong>{formatRivalryRecord(recordB)}</strong>
+              <span>{order.secondaryName}</span>
+              <strong>{formatRivalryRecord(secondaryRecord)}</strong>
             </div>
           </div>
         </div>
 
-        <div className="manager-profile-metrics rivalry-profile-metrics">
+        <div className="manager-profile-metrics rivalry-profile-metrics rivalry-profile-metrics-five">
           <div>
             <span>All Meetings</span>
             <strong>{rivalry.all.games}</strong>
           </div>
           <div>
-            <span>Total Points</span>
-            <strong>
-              {points(rivalry.all.pointsA)} – {points(rivalry.all.pointsB)}
-            </strong>
+            <span>Point Differential</span>
+            <strong>{pointDifferentialLabel(rivalry)}</strong>
           </div>
           <div>
             <span>Avg Margin</span>
-            <strong>{margin(rivalry.averageMargin)}</strong>
+            <strong>{margin(rivalry.averageMargin)} pts</strong>
           </div>
           <div>
             <span>Playoff Series</span>
@@ -163,38 +206,31 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
             </strong>
           </div>
           <div>
-            <span>{rivalry.managerAName} Playoff H2H</span>
-            <strong>
-              {rivalry.playoffs.games
-                ? formatRivalryRecord(playoffA)
-                : "—"}
-            </strong>
-          </div>
-          <div>
             <span>Current Streak</span>
             <strong>{rivalry.currentStreak?.label || "—"}</strong>
           </div>
         </div>
 
         <div className="manager-story-grid rivalry-story-grid">
-          {storyCard("Closest Game", rivalry.closestGame)}
-          {storyCard("Biggest Blowout", rivalry.biggestBlowout)}
-
-          <article>
-            <span>Highest-Scoring Meeting</span>
-            <strong>
-              {rivalry.highestCombined
-                ? `${points(rivalry.highestCombined.combinedPoints)} combined`
-                : "—"}
-            </strong>
-            <small>
-              {rivalry.highestCombined
-                ? `${rivalry.highestCombined.season} W${
-                    rivalry.highestCombined.week
-                  } • ${meetingResult(rivalry.highestCombined)}`
-                : "No meeting available"}
-            </small>
-          </article>
+          {storyCard(
+            "Closest Game",
+            rivalry.closestGame,
+            rivalry.closestGame ? `${margin(rivalry.closestGame.margin)} pts` : "—"
+          )}
+          {storyCard(
+            "Biggest Blowout",
+            rivalry.biggestBlowout,
+            rivalry.biggestBlowout
+              ? `${margin(rivalry.biggestBlowout.margin)} pts`
+              : "—"
+          )}
+          {storyCard(
+            "Highest-Scoring Meeting",
+            rivalry.highestCombined,
+            rivalry.highestCombined
+              ? `${points(rivalry.highestCombined.combinedPoints)} combined`
+              : "—"
+          )}
         </div>
 
         <div className="manager-profile-section-heading">
@@ -226,7 +262,9 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
                   <td>{seasonSeriesLabel(rivalry, season)}</td>
                   <td>{playoffSeriesLabel(rivalry, season)}</td>
                   <td className="record-cell">
-                    {points(season.pointsA)} – {points(season.pointsB)}
+                    {order.primaryIsA
+                      ? `${points(season.pointsA)} – ${points(season.pointsB)}`
+                      : `${points(season.pointsB)} – ${points(season.pointsA)}`}
                   </td>
                 </tr>
               ))}
@@ -275,7 +313,7 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
                             : "rivalry-stage"
                         }
                       >
-                        {meeting.stage}
+                        {meeting.isPlayoff ? meeting.stage : "Regular"}
                       </span>
                     </td>
                     <td>
@@ -283,7 +321,7 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
                         {meetingResult(meeting)}
                       </strong>
                       <span className="rivalry-team-context">
-                        {meeting.teamAName} vs. {meeting.teamBName}
+                        {meetingTeamContext(meeting, order)}
                       </span>
                     </td>
                     <td>{margin(meeting.margin)}</td>
@@ -294,11 +332,9 @@ export default function RivalryProfileModal({ rivalry, onClose }) {
         </div>
 
         <div className="manager-profile-note">
-          Rivalry series records use actual manager-vs-manager games only.
-          League-median bonus results never count. “Playoff meetings” only
-          includes resolved championship-path games plus the official
-          3rd-place game. Fifth-place, seventh-place and other lower placement
-          games are excluded.
+          Rivalry records use actual manager-vs-manager games. League-median
+          bonus results are excluded. Playoff records include championship-path
+          games and the official 3rd-place game.
         </div>
       </section>
     </div>

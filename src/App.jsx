@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import "./polish.css";
 import { loadSleeperHistory } from "./data/sleeper/historyLoader";
 import { normalizeSleeperHistory } from "./domain/almanacNormalizer";
 import {
@@ -143,14 +144,7 @@ export default function App() {
     ? [
         ["Seasons", almanac.seasons.length],
         ["Managers", almanac.managers.length],
-        ["Franchises", almanac.franchises.length],
         ["Games", meaningfulCompetitiveGameCount],
-        ["Transactions", almanac.transactions.length],
-        [
-          "Owner reviews",
-          almanac.ownershipIssues.filter((issue) => issue.status !== "resolved")
-            .length,
-        ],
       ]
     : [];
 
@@ -199,7 +193,7 @@ export default function App() {
     <main className="almanac-shell">
       <div className="masthead">
         <div>
-          <p className="eyebrow">Front Office Terminal</p>
+          <p className="eyebrow">League Almanac</p>
           <h1>{almanac?.leagueSeries?.name || "League Almanac"}</h1>
           <p className="subhead">
             Historical records, champions, managers, rivalries and league lore.
@@ -229,7 +223,7 @@ export default function App() {
             onClick={() => loadLeague()}
             disabled={loading || !leagueId.trim()}
           >
-            {loading ? "SYNCING…" : almanac ? "SYNC CURRENT" : "LOAD HISTORY"}
+            {loading ? "SYNCING…" : almanac ? "REFRESH LEAGUE" : "LOAD HISTORY"}
           </button>
 
           {almanac && (
@@ -238,9 +232,9 @@ export default function App() {
                 className="secondary-button"
                 onClick={() => loadLeague({ forceRefresh: true })}
                 disabled={loading}
-                title="Bypasses the completed-season cache and downloads every season again."
+                title="Bypasses cached historical seasons and downloads the full league history again."
               >
-                FORCE RESYNC
+                FULL RESYNC
               </button>
 
               <button
@@ -295,11 +289,11 @@ export default function App() {
           <section className="panel">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">Overview</p>
+                <p className="eyebrow">Championship History</p>
                 <h2>Hall of Champions</h2>
               </div>
               <span className="muted">
-                {almanac.champions.length} resolved championship
+                {almanac.champions.length} championship season
                 {almanac.champions.length === 1 ? "" : "s"}
               </span>
             </div>

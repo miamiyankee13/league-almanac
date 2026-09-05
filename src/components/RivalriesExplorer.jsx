@@ -1,40 +1,15 @@
 import { useMemo, useState } from "react";
 import {
   buildRivalryMetrics,
-  seriesLeaderLabel,
+  formatRivalryRecord,
+  recordForManager,
 } from "../domain/rivalryMetrics";
 import RivalryProfileModal from "./RivalryProfileModal";
 
-const FEATURED_LIMIT = 10;
-
-function points(value) {
-  return Number(value || 0).toFixed(2);
-}
-
-function pairNames(pair) {
-  if (!pair) return "—";
-  return `${pair.managerAName} vs. ${pair.managerBName}`;
-}
-
-function latestMeetingLabel(pair) {
-  const meeting = pair?.latestMeeting;
-  if (!meeting) return "—";
-
-  if (!meeting.winnerManagerId) {
-    return `${meeting.season} W${meeting.week} • tie`;
-  }
-
-  const winner =
-    meeting.winnerManagerId === pair.managerAId
-      ? pair.managerAName
-      : pair.managerBName;
-
-  return `${meeting.season} W${meeting.week} • ${winner} won`;
-}
-
 function currentManagerIds(almanac) {
-  const latestSeason = [...almanac.seasons]
-    .sort((a, b) => Number(b.season) - Number(a.season))[0];
+  const latestSeason = [...almanac.seasons].sort(
+    (a, b) => Number(b.season) - Number(a.season)
+  )[0];
 
   if (!latestSeason) return new Set();
 
@@ -60,19 +35,70 @@ function currentManagerIds(almanac) {
   return ids;
 }
 
-function rivalryScore(pair, currentIds) {
-  const bothCurrent =
-    currentIds.has(pair.managerAId) && currentIds.has(pair.managerBId);
+function displayOrder(pair, focusManagerId) {
+  if (focusManagerId === pair.managerBId) {
+    return {
+      primaryId: pair.managerBId,
+      primaryName: pair.managerBName,
+      secondaryId: pair.managerAId,
+      secondaryName: pair.managerAName,
+    };
+  }
 
-  const oneCurrent =
-    currentIds.has(pair.managerAId) || currentIds.has(pair.managerBId);
+  return {
+    primaryId: pair.managerAId,
+    primaryName: pair.managerAName,
+    secondaryId: pair.managerBId,
+    secondaryName: pair.managerBName,
+  };
+}
 
-  return (
-    pair.all.games * 10 +
-    pair.playoffs.games * 18 +
-    (bothCurrent ? 24 : oneCurrent ? 8 : 0) -
-    pair.averageMargin * 0.05
-  );
+function seriesSummary(pair, focusManagerId) {
+  if (!pair?.regular?.games) return "No regular-season meetings";
+
+  const order = displayOrder(pair, focusManagerId);
+  const primary = recordForManager(pair, pair.regular, order.primaryId);
+  const secondary = recordForManager(pair, pair.regular, order.secondaryId);
+
+  if (primary.wins === secondary.wins) {
+    return `Series tied ${formatRivalryRecord(primary)}`;
+  }
+
+  if (primary.wins > secondary.wins) {
+    return `${order.primaryName} leads ${formatRivalryRecord(primary)}`;
+  }
+
+  return `${order.secondaryName} leads ${formatRivalryRecord(secondary)}`;
+}
+
+function meetingResult(meeting) {
+  if (!meeting) return "—";
+
+  if (!meeting.winnerManagerId) {
+    return `${meeting.managerAName} tied ${meeting.managerBName} ${Number(
+      meeting.pointsA
+    ).toFixed(2)}–${Number(meeting.pointsB).toFixed(2)}`;
+  }
+
+  const winnerIsA = meeting.winnerManagerId === meeting.managerAId;
+  const winnerName = winnerIsA ? meeting.managerAName : meeting.managerBName;
+  const loserName = winnerIsA ? meeting.managerBName : meeting.managerAName;
+  const winnerPoints = winnerIsA ? meeting.pointsA : meeting.pointsB;
+  const loserPoints = winnerIsA ? meeting.pointsB : meeting.pointsA;
+
+  return `${winnerName} def. ${loserName} ${Number(winnerPoints).toFixed(
+    2
+  )}–${Number(loserPoints).toFixed(2)}`;
+}
+
+function latestMeetingReceipt(pair) {
+  const meeting = pair?.latestMeeting;
+  if (!meeting) return "No meetings yet";
+
+  const stage = meeting.isPlayoff ? ` · ${meeting.stage}` : "";
+  return `Last: ${meeting.season} W${meeting.week}${stage} — ${meetingResult(
+    meeting
+  )}`;
 }
 
 export default function RivalriesExplorer({ almanac }) {
@@ -83,7 +109,7 @@ export default function RivalriesExplorer({ almanac }) {
   );
 
   const [selectedRivalryId, setSelectedRivalryId] = useState(null);
-  const [scope, setScope] = useState("featured");
+  const [scope, setScope] = useState("current");
   const [managerFilter, setManagerFilter] = useState("all");
 
   const selectedRivalry =
@@ -132,28 +158,12 @@ export default function RivalriesExplorer({ almanac }) {
       );
     } else if (scope === "playoffs") {
       rows = rows.filter((rivalry) => rivalry.playoffs.games > 0);
-    } else if (scope === "featured" && managerFilter === "all") {
-      rows = rows
-        .sort(
-          (a, b) =>
-            rivalryScore(b, activeManagerIds) -
-            rivalryScore(a, activeManagerIds)
-        )
-        .slice(0, FEATURED_LIMIT);
     }
 
     return rows;
-  }, [
-    data.rivalries,
-    managerFilter,
-    scope,
-    activeManagerIds,
-  ]);
+  }, [data.rivalries, managerFilter, scope, activeManagerIds]);
 
-  const showingFeaturedSubset =
-    scope === "featured" &&
-    managerFilter === "all" &&
-    data.rivalries.length > FEATURED_LIMIT;
+  const focusManagerId = managerFilter === "all" ? null : managerFilter;
 
   return (
     <>
@@ -165,56 +175,13 @@ export default function RivalriesExplorer({ almanac }) {
           </div>
 
           <span className="muted">
-            {data.rivalries.length} historical manager pairing
+            {data.rivalries.length} historical pairing
             {data.rivalries.length === 1 ? "" : "s"}
           </span>
         </div>
 
-        <div className="rivalry-leader-cards compact">
-          <article>
-            <span>Most Meetings</span>
-            <strong>{pairNames(data.mostMeetings)}</strong>
-            <small>
-              {data.mostMeetings
-                ? `${data.mostMeetings.all.games} meetings`
-                : "—"}
-            </small>
-          </article>
-
-          <article>
-            <span>Tightest Series</span>
-            <strong>{pairNames(data.closestSeries)}</strong>
-            <small>
-              {data.closestSeries
-                ? seriesLeaderLabel(
-                    data.closestSeries,
-                    data.closestSeries.regular
-                  )
-                : "—"}
-            </small>
-          </article>
-
-          <article>
-            <span>Most Playoff Meetings</span>
-            <strong>{pairNames(data.mostPlayoffMeetings)}</strong>
-            <small>
-              {data.mostPlayoffMeetings
-                ? `${data.mostPlayoffMeetings.playoffs.games} playoff meeting${
-                    data.mostPlayoffMeetings.playoffs.games === 1 ? "" : "s"
-                  }`
-                : "None yet"}
-            </small>
-          </article>
-        </div>
-
-        <div className="rivalry-browser">
+        <div className="rivalry-browser rivalry-browser-clean">
           <div className="rivalry-scope-tabs">
-            <button
-              className={scope === "featured" ? "active" : ""}
-              onClick={() => setScope("featured")}
-            >
-              FEATURED
-            </button>
             <button
               className={scope === "current" ? "active" : ""}
               onClick={() => setScope("current")}
@@ -239,7 +206,11 @@ export default function RivalriesExplorer({ almanac }) {
             <span>Manager</span>
             <select
               value={managerFilter}
-              onChange={(event) => setManagerFilter(event.target.value)}
+              onChange={(event) => {
+                const nextManager = event.target.value;
+                setManagerFilter(nextManager);
+                if (nextManager !== "all") setScope("all");
+              }}
             >
               <option value="all">All managers</option>
               {managerOptions.map((manager) => (
@@ -255,59 +226,63 @@ export default function RivalriesExplorer({ almanac }) {
         {(data.unattributedRegularGames > 0 ||
           data.unattributedPlayoffGames > 0) && (
           <div className="rivalry-data-note">
-            {data.unattributedRegularGames +
-              data.unattributedPlayoffGames}{" "}
+            {data.unattributedRegularGames + data.unattributedPlayoffGames}{" "}
             historical game
-            {data.unattributedRegularGames +
-              data.unattributedPlayoffGames ===
-            1
+            {data.unattributedRegularGames + data.unattributedPlayoffGames === 1
               ? ""
               : "s"}{" "}
             are withheld because manager attribution remains unresolved.
           </div>
         )}
 
-        <div className="rivalry-list">
-          {filteredRivalries.map((rivalry) => (
-            <button
-              type="button"
-              key={rivalry.rivalryId}
-              className="rivalry-compact-row"
-              onClick={() => setSelectedRivalryId(rivalry.rivalryId)}
-            >
-              <div className="rivalry-compact-main">
-                <strong>
-                  {rivalry.managerAName}
-                  <span> vs. </span>
-                  {rivalry.managerBName}
-                </strong>
-                <small>{latestMeetingLabel(rivalry)}</small>
-              </div>
+        {focusManagerId && (
+          <div className="rivalry-focus-label">
+            {managerOptions.find((manager) => manager.id === focusManagerId)?.name ||
+              focusManagerId}
+            &apos;s rivalry history
+          </div>
+        )}
 
-              <div className="rivalry-compact-stat rivalry-series-stat">
-                <span>Series</span>
-                <strong>
-                  {seriesLeaderLabel(rivalry, rivalry.regular)}
-                </strong>
-              </div>
+        <div className="rivalry-list rivalry-list-clean">
+          {filteredRivalries.map((rivalry) => {
+            const order = displayOrder(rivalry, focusManagerId);
 
-              <div className="rivalry-compact-stat">
-                <span>Meetings</span>
-                <strong>{rivalry.regular.games}</strong>
-              </div>
+            return (
+              <button
+                type="button"
+                key={rivalry.rivalryId}
+                className="rivalry-compact-row rivalry-compact-row-clean"
+                onClick={() => setSelectedRivalryId(rivalry.rivalryId)}
+              >
+                <div className="rivalry-compact-main rivalry-compact-main-clean">
+                  <strong>
+                    {order.primaryName}
+                    <span> vs. </span>
+                    {order.secondaryName}
+                  </strong>
+                  <small className="rivalry-series-line">
+                    {seriesSummary(rivalry, focusManagerId)}
+                  </small>
+                  <small className="rivalry-latest-line">
+                    {latestMeetingReceipt(rivalry)}
+                  </small>
+                </div>
 
-              <div className="rivalry-compact-stat">
-                <span>Playoffs</span>
-                <strong>
-                  {rivalry.playoffs.games
-                    ? rivalry.playoffs.games
-                    : "—"}
-                </strong>
-              </div>
+                <div className="rivalry-compact-counts">
+                  <span>
+                    <strong>{rivalry.regular.games}</strong> regular meeting
+                    {rivalry.regular.games === 1 ? "" : "s"}
+                  </span>
+                  <span>
+                    <strong>{rivalry.playoffs.games}</strong> playoff meeting
+                    {rivalry.playoffs.games === 1 ? "" : "s"}
+                  </span>
+                </div>
 
-              <div className="rivalry-row-chevron">›</div>
-            </button>
-          ))}
+                <div className="rivalry-row-chevron">›</div>
+              </button>
+            );
+          })}
 
           {filteredRivalries.length === 0 && (
             <div className="empty-state">
@@ -316,27 +291,16 @@ export default function RivalriesExplorer({ almanac }) {
           )}
         </div>
 
-        {showingFeaturedSubset && (
-          <button
-            type="button"
-            className="rivalry-view-all"
-            onClick={() => setScope("all")}
-          >
-            VIEW ALL {data.rivalries.length} RIVALRIES
-          </button>
-        )}
-
         <p className="standings-footnote rivalry-footnote compact">
-          Featured prioritizes established series, playoff history and current
-          owners. Use the manager filter to instantly isolate one owner&apos;s
-          complete rivalry history. League-median bonus games and lower
-          placement playoff games never count.
+          Current Owners shows active manager pairings. League-median bonus games
+          and lower placement playoff games are excluded from rivalry records.
         </p>
       </section>
 
       {selectedRivalry && (
         <RivalryProfileModal
           rivalry={selectedRivalry}
+          focusManagerId={focusManagerId}
           onClose={() => setSelectedRivalryId(null)}
         />
       )}

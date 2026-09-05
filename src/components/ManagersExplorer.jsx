@@ -27,12 +27,7 @@ export default function ManagersExplorer({ almanac }) {
             <h2>Career Leaderboard</h2>
           </div>
           <span className="muted">
-            {data.managers.length} primary manager{data.managers.length === 1 ? "" : "s"}
-            {data.coOwnerOnlyManagers.length
-              ? ` • ${data.coOwnerOnlyManagers.length} co-owner-only identit${
-                  data.coOwnerOnlyManagers.length === 1 ? "y" : "ies"
-                } excluded from career rankings`
-              : ""}
+            {data.managers.length} manager{data.managers.length === 1 ? "" : "s"}
           </span>
         </div>
 
@@ -51,7 +46,7 @@ export default function ManagersExplorer({ almanac }) {
                 <th>#</th>
                 <th>Manager</th>
                 <th>Seasons</th>
-                <th>Career H2H</th>
+                <th>H2H Record</th>
                 <th>Win %</th>
                 <th>PF</th>
                 <th>Playoffs</th>
@@ -102,11 +97,8 @@ export default function ManagersExplorer({ almanac }) {
 
         <p className="standings-footnote manager-footnote">
           Leaderboard order: championships, then regular-season H2H wins, win
-          percentage and points for. Co-owner-only identities remain preserved in
-          the Almanac but do not receive primary-manager career statistics by
-          default. Playoff statistics count championship-path games plus
-          the official 3rd-place game; lower placement games do not affect
-          playoff records.
+          percentage and points for. Career rankings follow reconciled primary
+          ownership and exclude co-owner-only identities.
         </p>
       </section>
 
