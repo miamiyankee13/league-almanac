@@ -22,6 +22,54 @@ function completedTransactionsForRoster(season, rosterId, managerId) {
         week: Number(tx.leg ?? weekEntry.week ?? 0) || null,
         created: Number(tx.created ?? tx.status_updated ?? 0) || null,
         type: tx.type ?? null,
+        creatorManagerId: str(tx.creator),
+        evidenceType: "direct_creator",
+      });
+    }
+  }
+
+  return out.sort((a, b) => (a.created || 0) - (b.created || 0));
+}
+
+/**
+ * A completed trade can involve a roster even when that roster's manager is
+ * NOT the transaction creator. Sleeper's creator field identifies the side
+ * that initiated the trade; the accepting side can therefore have real roster
+ * activity without ever appearing as tx.creator.
+ *
+ * This is indirect ownership evidence only. It proves the roster participated
+ * in a completed trade, not which user clicked accept.
+ */
+function completedTradeParticipationForRoster(season, rosterId) {
+  const seen = new Set();
+  const out = [];
+  const targetRosterId = str(rosterId);
+
+  for (const weekEntry of season?.weeks || []) {
+    for (const tx of weekEntry.transactions || []) {
+      const id = str(tx.transaction_id);
+      if (!id || seen.has(id)) continue;
+      if (tx.status !== "complete") continue;
+      if (tx.type !== "trade") continue;
+
+      const rosterIds = (tx.roster_ids || []).map(str);
+      if (!rosterIds.includes(targetRosterId)) continue;
+
+      const consenterRosterIds = (tx.consenter_ids || []).map(str);
+      const rosterConsented =
+        consenterRosterIds.length === 0 ||
+        consenterRosterIds.includes(targetRosterId);
+
+      if (!rosterConsented) continue;
+
+      seen.add(id);
+      out.push({
+        transactionId: id,
+        week: Number(tx.leg ?? weekEntry.week ?? 0) || null,
+        created: Number(tx.created ?? tx.status_updated ?? 0) || null,
+        type: tx.type ?? null,
+        creatorManagerId: str(tx.creator),
+        evidenceType: "roster_trade_participation",
       });
     }
   }
@@ -38,14 +86,19 @@ function makeRange(start, end) {
 
 function buildAnalysis({
   changeType,
+  previousManagerId,
+  currentManagerId,
   previousTransactions,
   currentTransactions,
+  indirectCurrentTransactions,
   lastScoredLeg,
 }) {
   const prevFirst = previousTransactions[0] || null;
   const prevLast = previousTransactions.at(-1) || null;
   const currentFirst = currentTransactions[0] || null;
   const currentLast = currentTransactions.at(-1) || null;
+  const indirectFirst = indirectCurrentTransactions[0] || null;
+  const indirectLast = indirectCurrentTransactions.at(-1) || null;
 
   const notes = [];
   let classification = "insufficient_evidence";
@@ -179,6 +232,58 @@ function buildAnalysis({
         "The incoming manager has confirmed in-season roster activity, but there is no completed outgoing-manager transaction to bound the beginning of the handoff window."
       );
     }
+  } else if (prevLast && !currentFirst && indirectFirst) {
+    const prevWeek = Number(prevLast.week || 0);
+    const indirectWeek = Number(indirectFirst.week || 0);
+
+    if (
+      (prevLast.created || 0) < (indirectFirst.created || 0) &&
+      indirectWeek >= prevWeek
+    ) {
+      classification = "midseason_window_indirect";
+      suggestedEffectiveWeek = indirectWeek || null;
+      confidence =
+        indirectCurrentTransactions.length >= 2 ? 0.74 : 0.64;
+
+      if (prevWeek && indirectWeek) {
+        possibleEffectiveWeeks = makeRange(
+          Math.max(1, prevWeek + 1),
+          Math.max(prevWeek + 1, indirectWeek)
+        );
+      }
+
+      notes.push(
+        "No completed transaction was directly created by the incoming manager, but this roster participated in completed trades after the outgoing manager's last direct transaction."
+      );
+      notes.push(
+        "Sleeper records a trade's creator as the manager who initiated the transaction. An incoming owner who accepts a trade can therefore be active without appearing as tx.creator."
+      );
+      notes.push(
+        `The first such post-outgoing trade participation was in Week ${indirectWeek}. This is indirect roster-control evidence, not proof of the exact handoff week, so commissioner confirmation is still required.`
+      );
+    } else {
+      classification = "outgoing_activity_only";
+      confidence = 0.45;
+      notes.push(
+        "Only outgoing-manager direct transaction activity was found, and the available roster-level trade activity does not create a clean post-outgoing handoff window."
+      );
+    }
+  } else if (!prevLast && !currentFirst && indirectFirst) {
+    const indirectWeek = Number(indirectFirst.week || 0);
+
+    classification = "indirect_roster_activity_only";
+    suggestedEffectiveWeek = indirectWeek || null;
+    confidence = 0.5;
+    possibleEffectiveWeeks = indirectWeek
+      ? makeRange(1, indirectWeek)
+      : [];
+
+    notes.push(
+      "No completed transaction was directly created by either ownership candidate, but the roster participated in completed trades during the season."
+    );
+    notes.push(
+      "Because Sleeper records the initiating side as tx.creator, this can reflect activity by an accepting replacement owner. It does not identify the user with certainty."
+    );
   } else if (prevLast && !currentFirst) {
     if (
       finalCompetitiveWeek &&
@@ -222,6 +327,15 @@ function buildAnalysis({
       firstTransaction: currentFirst,
       lastTransaction: currentLast,
     },
+    indirectCurrent: {
+      transactionCount: indirectCurrentTransactions.length,
+      firstTransaction: indirectFirst,
+      lastTransaction: indirectLast,
+      note:
+        indirectCurrentTransactions.length > 0
+          ? "Completed roster trade participation after the outgoing manager's last direct activity. This is indirect evidence because tx.creator can belong to the opposing trade partner."
+          : null,
+    },
     notes,
   };
 }
@@ -250,6 +364,35 @@ export function attachOwnershipEvidence(rawSeasons, ownershipIssues) {
       issue.currentManagerId
     );
 
+    const allTradeParticipation = completedTradeParticipationForRoster(
+      season,
+      issue.rosterId
+    );
+
+    const prevLast = previousTransactions.at(-1) || null;
+
+    // Only use trade participation as incoming-side indirect evidence when a
+    // direct current-manager transaction is unavailable. Prefer activity after
+    // the outgoing manager's final direct action, and exclude trades initiated
+    // by the outgoing manager themselves.
+    const indirectCurrentTransactions =
+      currentTransactions.length > 0
+        ? []
+        : allTradeParticipation.filter((tx) => {
+            if (str(tx.creatorManagerId) === str(issue.previousManagerId)) {
+              return false;
+            }
+
+            if (
+              prevLast?.created &&
+              tx.created &&
+              Number(tx.created) <= Number(prevLast.created)
+            ) {
+              return false;
+            }
+
+            return true;
+          });
 
     return {
       ...issue,
@@ -257,9 +400,14 @@ export function attachOwnershipEvidence(rawSeasons, ownershipIssues) {
         ...issue.evidence,
         ...buildAnalysis({
           changeType: issue.changeType || "owner_change",
+          previousManagerId: issue.previousManagerId,
+          currentManagerId: issue.currentManagerId,
           previousTransactions,
           currentTransactions,
-          lastScoredLeg: Number(season?.league?.settings?.last_scored_leg ?? 0),
+          indirectCurrentTransactions,
+          lastScoredLeg: Number(
+            season?.league?.settings?.last_scored_leg ?? 0
+          ),
         }),
       },
     };

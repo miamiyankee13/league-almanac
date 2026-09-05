@@ -22,6 +22,8 @@ function classificationLabel(value) {
   const labels = {
     likely_offseason_before_season: "LIKELY OFFSEASON TAKEOVER",
     midseason_window: "LIKELY MIDSEASON HANDOFF",
+    midseason_window_indirect: "LIKELY MIDSEASON HANDOFF • INDIRECT",
+    indirect_roster_activity_only: "INDIRECT ROSTER ACTIVITY",
     possible_midseason_takeover: "POSSIBLE MIDSEASON HANDOFF",
     likely_after_season_or_late_takeover: "LIKELY AFTER-SEASON HANDOFF",
     late_season_vacancy: "LATE-SEASON VACANCY",
@@ -106,9 +108,7 @@ export default function OwnershipReviewModal({
         if (week === 1) {
           return {
             value: week,
-            label: isFilledVacancy
-              ? "Before Week 1 / offseason — new manager gets the full season"
-              : "Before Week 1 / offseason — new manager gets the full season",
+            label: "Before Week 1 / offseason — new manager gets the full season",
           };
         }
 
@@ -131,6 +131,9 @@ export default function OwnershipReviewModal({
 
   const prevLast = issue?.evidence?.previous?.lastTransaction;
   const currentFirst = issue?.evidence?.current?.firstTransaction;
+  const indirectFirst = issue?.evidence?.indirectCurrent?.firstTransaction;
+  const indirectCount =
+    issue?.evidence?.indirectCurrent?.transactionCount || 0;
   const possibleWeeks = issue?.evidence?.possibleEffectiveWeeks || [];
   const suggested = issue?.evidence?.suggestedEffectiveWeek || null;
 
@@ -205,19 +208,29 @@ export default function OwnershipReviewModal({
             <span>
               {isVacatedRoster
                 ? "Replacement-owner evidence"
-                : "First current-manager transaction"}
+                : currentFirst
+                  ? "First current-manager transaction"
+                  : indirectFirst
+                    ? "First post-outgoing roster trade"
+                    : "First current-manager transaction"}
             </span>
             <strong>
               {isVacatedRoster
                 ? "No owner in final season snapshot"
                 : currentFirst
                   ? `Week ${currentFirst.week} • ${formatDate(currentFirst.created)}`
-                  : "None found"}
+                  : indirectFirst
+                    ? `Week ${indirectFirst.week} • ${formatDate(indirectFirst.created)}`
+                    : "None found"}
             </strong>
             <small>
               {isVacatedRoster
                 ? "Choose when this roster should begin receiving no manager credit"
-                : `${issue?.evidence?.current?.transactionCount || 0} completed roster transactions found`}
+                : currentFirst
+                  ? `${issue?.evidence?.current?.transactionCount || 0} direct completed transactions found`
+                  : indirectFirst
+                    ? `${indirectCount} completed post-outgoing trade${indirectCount === 1 ? "" : "s"} involved this roster • indirect evidence`
+                    : "No direct or indirect replacement activity found"}
             </small>
           </div>
         </div>
