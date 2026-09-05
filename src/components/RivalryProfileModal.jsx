@@ -85,6 +85,25 @@ function storyCard(label, meeting, value) {
   );
 }
 
+function currentStreakCard(rivalry) {
+  const streak = rivalry.currentStreak;
+  const latest = rivalry.latestMeeting;
+
+  return (
+    <article>
+      <span>Current Streak</span>
+      <strong>{streak?.label || "—"}</strong>
+      <small>
+        {latest
+          ? `Through ${latest.season} W${latest.week}${
+              latest.isPlayoff ? ` · ${latest.stage}` : ""
+            }`
+          : "No meeting available"}
+      </small>
+    </article>
+  );
+}
+
 function seasonSeriesLabel(pair, breakdown) {
   if (!breakdown?.regular?.games) return "—";
   return seriesLeaderLabel(pair, breakdown.regular);
@@ -150,7 +169,18 @@ export default function RivalryProfileModal({
           </button>
         </div>
 
-        <div className="rivalry-series-banner rivalry-series-banner-paired">
+        <div className="rivalry-overall-banner">
+          <div className="rivalry-series-card rivalry-overall-series-card">
+            <span>Overall Series</span>
+            <strong>{seriesLeaderLabel(rivalry, rivalry.all)}</strong>
+            <small className="rivalry-overall-meetings">
+              {rivalry.all.games} total meeting
+              {rivalry.all.games === 1 ? "" : "s"}
+            </small>
+          </div>
+        </div>
+
+        <div className="rivalry-series-banner rivalry-series-banner-paired rivalry-series-banner-secondary">
           <div className="rivalry-series-card">
             <span>Regular-season series</span>
             <strong>{seriesLeaderLabel(rivalry, rivalry.regular)}</strong>
@@ -166,15 +196,7 @@ export default function RivalryProfileModal({
           </div>
         </div>
 
-        <div className="manager-profile-metrics rivalry-profile-metrics rivalry-profile-metrics-four">
-          <div>
-            <span>Overall Series</span>
-            <strong>{seriesLeaderLabel(rivalry, rivalry.all)}</strong>
-            <small className="rivalry-overall-meetings">
-              {rivalry.all.games} total meeting
-              {rivalry.all.games === 1 ? "" : "s"}
-            </small>
-          </div>
+        <div className="manager-profile-metrics rivalry-profile-metrics rivalry-profile-metrics-two">
           <div>
             <span>Point Differential</span>
             <strong>{pointDifferentialLabel(rivalry)}</strong>
@@ -183,13 +205,10 @@ export default function RivalryProfileModal({
             <span>Avg Margin</span>
             <strong>{margin(rivalry.averageMargin)} pts</strong>
           </div>
-          <div>
-            <span>Current Streak</span>
-            <strong>{rivalry.currentStreak?.label || "—"}</strong>
-          </div>
         </div>
 
-        <div className="manager-story-grid rivalry-story-grid">
+        <div className="manager-story-grid rivalry-story-grid rivalry-story-grid-four">
+          {currentStreakCard(rivalry)}
           {storyCard(
             "Closest Game",
             rivalry.closestGame,

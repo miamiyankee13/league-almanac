@@ -116,9 +116,31 @@
   font-size: 10px;
 }
 
-/* Rivalry dossier: put regular-season and playoff series side by side. */
+/* Rivalry dossier hierarchy:
+   overall series first, regular/playoff split second, supporting metrics third. */
+.rivalry-overall-banner {
+  margin-top: 18px;
+}
+
+.rivalry-overall-banner > div {
+  border: 1px solid #36506e;
+  background:
+    linear-gradient(145deg, rgba(70, 111, 164, 0.10), transparent 58%),
+    #0a141f;
+  border-radius: 11px;
+  padding: 15px;
+}
+
+.rivalry-overall-series-card > strong {
+  font-size: 21px;
+}
+
 .rivalry-series-banner-paired {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rivalry-series-banner-secondary {
+  margin-top: 10px;
 }
 
 .rivalry-series-card > span {
@@ -138,22 +160,25 @@
   line-height: 1.25;
 }
 
-.rivalry-profile-metrics-four {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.rivalry-profile-metrics-four > div:nth-child(2) strong,
-.rivalry-profile-metrics-four > div:nth-child(4) strong {
-  font-size: 14px;
-  line-height: 1.25;
-}
-
 .rivalry-overall-meetings {
   display: block;
   margin-top: 5px;
   color: #71849b;
   font-size: 9px;
   line-height: 1.35;
+}
+
+.rivalry-profile-metrics-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rivalry-profile-metrics-two > div:first-child strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.rivalry-story-grid-four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .record-card-owner strong,
@@ -173,7 +198,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .rivalry-profile-metrics-four {
+  .rivalry-profile-metrics-two,
+  .rivalry-story-grid-four {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -225,7 +251,8 @@
   }
 
   .manager-story-grid-four,
-  .rivalry-profile-metrics-four,
+  .rivalry-profile-metrics-two,
+  .rivalry-story-grid-four,
   .rivalry-series-banner-paired {
     grid-template-columns: 1fr;
   }
