@@ -290,7 +290,9 @@ h3 {
 }
 
 .masthead-brand.disconnected .almanac-logo {
-  margin-top: 1px;
+  /* Visually center the square LA mark against the large title line itself,
+     not against the title + subtitle block. */
+  margin-top: 10px;
 }
 
 .almanac-logo {
