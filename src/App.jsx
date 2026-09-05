@@ -15,6 +15,25 @@ import RecordBook from "./components/RecordBook";
 import { getMeaningfulCompetitiveGames } from "./domain/gameUtils";
 
 const LEAGUE_KEY = "league-almanac.currentLeagueId";
+const NAV_KEY = "league-almanac.activeSection";
+
+const NAV_ITEMS = [
+  { id: "overview", label: "OVERVIEW" },
+  { id: "seasons", label: "SEASONS" },
+  { id: "records", label: "RECORDS" },
+  { id: "managers", label: "MANAGERS" },
+  { id: "rivalries", label: "RIVALRIES" },
+  { id: "admin", label: "ADMIN" },
+];
+
+function initialNavSection() {
+  try {
+    const stored = sessionStorage.getItem(NAV_KEY);
+    return NAV_ITEMS.some((item) => item.id === stored) ? stored : "overview";
+  } catch {
+    return "overview";
+  }
+}
 
 function downloadJson(data, filename) {
   const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -69,6 +88,7 @@ export default function App() {
   const [almanac, setAlmanac] = useState(null);
   const [loadElapsedMs, setLoadElapsedMs] = useState(0);
   const [reviewIssueId, setReviewIssueId] = useState(null);
+  const [activeSection, setActiveSection] = useState(initialNavSection);
 
   function normalizeWithStoredOverrides(raw) {
     const newest = raw.seasons.at(-1);
@@ -163,6 +183,24 @@ export default function App() {
   const resolvedOwnershipCount =
     almanac?.ownershipIssues.filter((issue) => issue.status === "resolved")
       .length || 0;
+
+
+  function selectSection(sectionId) {
+    setActiveSection(sectionId);
+
+    try {
+      sessionStorage.setItem(NAV_KEY, sectionId);
+    } catch {
+      // Navigation still works if session storage is unavailable.
+    }
+
+    requestAnimationFrame(() => {
+      document.getElementById("almanac-section-nav")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
 
   function saveReview(decision) {
     if (!reviewIssue || !almanac) return;
@@ -267,179 +305,236 @@ export default function App() {
 
       {almanac && (
         <>
-          <section className="summary-grid">
-            {stats.map(([label, value]) => (
-              <div className="metric" key={label}>
-                <div className="metric-label">{label}</div>
-                <div className="metric-value">{value}</div>
-              </div>
-            ))}
-          </section>
-
-          {medianSeasons.length > 0 && (
-            <section className="notice">
-              <strong>League-median scoring detected.</strong>{" "}
-              {medianSeasons.map((season) => season.season).join(", ")} use an
-              extra game against the league median. The Almanac is keeping
-              head-to-head games separate from official standings records so
-              those extra results will not contaminate rivalry/H2H history.
-            </section>
-          )}
-
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Championship History</p>
-                <h2>Hall of Champions</h2>
-              </div>
-              <span className="muted">
-                {almanac.champions.length} championship season
-                {almanac.champions.length === 1 ? "" : "s"}
-              </span>
-            </div>
-
-            <div className="champion-grid">
-              {almanac.champions.map((champion) => (
-                <article className="champion-card" key={champion.championId}>
-                  <div className="champion-season">{champion.season}</div>
-                  <div className="champion-kicker">League Champion</div>
-                  <h3>{managerName(almanac, champion.winner.managerId)}</h3>
-                  <div className="champion-team">{champion.winner.teamName}</div>
-
-                  <div className="champion-score">
-                    <strong>
-                      {champion.winner.points == null
-                        ? "—"
-                        : champion.winner.points.toFixed(2)}
-                    </strong>
-                    <span>–</span>
-                    <strong>
-                      {champion.runnerUp.points == null
-                        ? "—"
-                        : champion.runnerUp.points.toFixed(2)}
-                    </strong>
-                  </div>
-
-                  <div className="champion-runner">
-                    vs. {managerName(almanac, champion.runnerUp.managerId)}
-                    <span>{champion.runnerUp.teamName}</span>
-                  </div>
-                </article>
+          <nav
+            className="almanac-nav"
+            id="almanac-section-nav"
+            aria-label="League Almanac sections"
+          >
+            <div className="almanac-nav-track">
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`almanac-nav-button ${
+                    activeSection === item.id ? "active" : ""
+                  }`}
+                  onClick={() => selectSection(item.id)}
+                  aria-current={activeSection === item.id ? "page" : undefined}
+                >
+                  <span>{item.label}</span>
+                  {item.id === "admin" && unresolvedOwnershipCount > 0 && (
+                    <span
+                      className="almanac-nav-badge"
+                      aria-label={`${unresolvedOwnershipCount} ownership reviews pending`}
+                    >
+                      {unresolvedOwnershipCount}
+                    </span>
+                  )}
+                </button>
               ))}
             </div>
-          </section>
+          </nav>
 
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Data integrity</p>
-                <h2>Ownership Reconciliation</h2>
-              </div>
-              <span className="muted">
-                {unresolvedOwnershipCount === 0
-                  ? `${resolvedOwnershipCount} historical handoff${
-                      resolvedOwnershipCount === 1 ? "" : "s"
-                    } reconciled`
-                  : `${unresolvedOwnershipCount} handoff${
-                      unresolvedOwnershipCount === 1 ? "" : "s"
-                    } still need review`}
-              </span>
-            </div>
+          <div className="almanac-section-content" data-section={activeSection}>
+            {activeSection === "overview" && (
+              <>
+                <section className="summary-grid">
+                  {stats.map(([label, value]) => (
+                    <div className="metric" key={label}>
+                      <div className="metric-label">{label}</div>
+                      <div className="metric-value">{value}</div>
+                    </div>
+                  ))}
+                </section>
 
-            {almanac.ownershipIssues.length > 0 &&
-              unresolvedOwnershipCount === 0 && (
-                <div className="reconciliation-complete">
-                  <div className="reconciliation-check">✓</div>
-                  <div>
-                    <strong>Ownership history reconciled.</strong>
-                    <span>
-                      Manager tenure boundaries are now being applied to weekly
-                      games, playoff results and future career statistics. You
-                      can still edit any decision below.
+                {medianSeasons.length > 0 && (
+                  <section className="notice">
+                    <strong>League-median scoring detected.</strong>{" "}
+                    {medianSeasons.map((season) => season.season).join(", ")} use an
+                    extra game against the league median. The Almanac is keeping
+                    head-to-head games separate from official standings records so
+                    those extra results will not contaminate rivalry/H2H history.
+                  </section>
+                )}
+
+                <section className="panel">
+                  <div className="section-heading">
+                    <div>
+                      <p className="eyebrow">Championship History</p>
+                      <h2>Hall of Champions</h2>
+                    </div>
+                    <span className="muted">
+                      {almanac.champions.length} championship season
+                      {almanac.champions.length === 1 ? "" : "s"}
                     </span>
                   </div>
-                </div>
-              )}
 
-            {almanac.ownershipIssues.length === 0 ? (
-              <div className="muted">
-                No cross-season owner changes detected.
-              </div>
-            ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Season</th>
-                      <th>Roster</th>
-                      <th>Previous manager</th>
-                      <th>Current snapshot</th>
-                      <th>Evidence</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
+                  <div className="champion-grid">
+                    {almanac.champions.map((champion) => (
+                      <article className="champion-card" key={champion.championId}>
+                        <div className="champion-season">{champion.season}</div>
+                        <div className="champion-kicker">League Champion</div>
+                        <h3>{managerName(almanac, champion.winner.managerId)}</h3>
+                        <div className="champion-team">{champion.winner.teamName}</div>
 
-                  <tbody>
-                    {almanac.ownershipIssues.map((issue) => {
-                      const previous = issue.previousManagerId
-                        ? managerName(almanac, issue.previousManagerId)
-                        : "VACANT / NO OWNER";
-                      const current = issue.currentManagerId
-                        ? managerName(almanac, issue.currentManagerId)
-                        : "VACANT / NO OWNER";
+                        <div className="champion-score">
+                          <strong>
+                            {champion.winner.points == null
+                              ? "—"
+                              : champion.winner.points.toFixed(2)}
+                          </strong>
+                          <span>–</span>
+                          <strong>
+                            {champion.runnerUp.points == null
+                              ? "—"
+                              : champion.runnerUp.points.toFixed(2)}
+                          </strong>
+                        </div>
 
-                      const classification =
-                        issue.evidence?.classification
-                          ?.replaceAll("_", " ")
-                          .toUpperCase() || "NEEDS REVIEW";
-
-                      return (
-                        <tr
-                          key={issue.ownershipIssueId}
-                          className="clickable-row"
-                          onClick={() =>
-                            setReviewIssueId(issue.ownershipIssueId)
-                          }
-                        >
-                          <td>{issue.season}</td>
-                          <td>{issue.rosterId}</td>
-                          <td>{previous}</td>
-                          <td>{current}</td>
-                          <td className="evidence-cell">{classification}</td>
-                          <td>
-                            <button
-                              className={`badge-button ${
-                                issue.status === "resolved" ? "resolved" : ""
-                              }`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setReviewIssueId(issue.ownershipIssueId);
-                              }}
-                            >
-                              {issue.status === "resolved"
-                                ? `EDIT • W${issue.effectiveWeek}`
-                                : "REVIEW"}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        <div className="champion-runner">
+                          vs. {managerName(almanac, champion.runnerUp.managerId)}
+                          <span>{champion.runnerUp.teamName}</span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </>
             )}
-          </section>
 
-          <SeasonExplorer
-            almanac={almanac}
-            onReviewOwnership={(issueId) => setReviewIssueId(issueId)}
-          />
+            {activeSection === "seasons" && (
+              <SeasonExplorer
+                almanac={almanac}
+                onReviewOwnership={(issueId) => setReviewIssueId(issueId)}
+              />
+            )}
 
-          <ManagersExplorer almanac={almanac} />
+            {activeSection === "records" && <RecordBook almanac={almanac} />}
 
-          <RivalriesExplorer almanac={almanac} />
+            {activeSection === "managers" && (
+              <ManagersExplorer almanac={almanac} />
+            )}
 
-          <RecordBook almanac={almanac} />
+            {activeSection === "rivalries" && (
+              <RivalriesExplorer almanac={almanac} />
+            )}
+
+            {activeSection === "admin" && (
+              <>
+                <section className="admin-section-intro">
+                  <div>
+                    <p className="eyebrow">Admin</p>
+                    <h2>League Administration</h2>
+                    <p>
+                      Commissioner-only data integrity tools and historical
+                      overrides live here.
+                    </p>
+                  </div>
+                </section>
+
+                <section className="panel admin-reconciliation-panel">
+                  <div className="section-heading">
+                    <div>
+                      <p className="eyebrow">Data integrity</p>
+                      <h2>Ownership Reconciliation</h2>
+                    </div>
+                    <span className="muted">
+                      {unresolvedOwnershipCount === 0
+                        ? `${resolvedOwnershipCount} historical handoff${
+                            resolvedOwnershipCount === 1 ? "" : "s"
+                          } reconciled`
+                        : `${unresolvedOwnershipCount} handoff${
+                            unresolvedOwnershipCount === 1 ? "" : "s"
+                          } still need review`}
+                    </span>
+                  </div>
+
+                  {almanac.ownershipIssues.length > 0 &&
+                    unresolvedOwnershipCount === 0 && (
+                      <div className="reconciliation-complete">
+                        <div className="reconciliation-check">✓</div>
+                        <div>
+                          <strong>Ownership history reconciled.</strong>
+                          <span>
+                            Manager tenure boundaries are now being applied to weekly
+                            games, playoff results and future career statistics. You
+                            can still edit any decision below.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                  {almanac.ownershipIssues.length === 0 ? (
+                    <div className="muted">
+                      No cross-season owner changes detected.
+                    </div>
+                  ) : (
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Season</th>
+                            <th>Roster</th>
+                            <th>Previous manager</th>
+                            <th>Current snapshot</th>
+                            <th>Evidence</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {almanac.ownershipIssues.map((issue) => {
+                            const previous = issue.previousManagerId
+                              ? managerName(almanac, issue.previousManagerId)
+                              : "VACANT / NO OWNER";
+                            const current = issue.currentManagerId
+                              ? managerName(almanac, issue.currentManagerId)
+                              : "VACANT / NO OWNER";
+
+                            const classification =
+                              issue.evidence?.classification
+                                ?.replaceAll("_", " ")
+                                .toUpperCase() || "NEEDS REVIEW";
+
+                            return (
+                              <tr
+                                key={issue.ownershipIssueId}
+                                className="clickable-row"
+                                onClick={() =>
+                                  setReviewIssueId(issue.ownershipIssueId)
+                                }
+                              >
+                                <td>{issue.season}</td>
+                                <td>{issue.rosterId}</td>
+                                <td>{previous}</td>
+                                <td>{current}</td>
+                                <td className="evidence-cell">{classification}</td>
+                                <td>
+                                  <button
+                                    className={`badge-button ${
+                                      issue.status === "resolved" ? "resolved" : ""
+                                    }`}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setReviewIssueId(issue.ownershipIssueId);
+                                    }}
+                                  >
+                                    {issue.status === "resolved"
+                                      ? `EDIT • W${issue.effectiveWeek}`
+                                      : "REVIEW"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+          </div>
         </>
       )}
 

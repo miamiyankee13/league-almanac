@@ -257,3 +257,129 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Phase 3 — App shell navigation */
+.almanac-nav {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  margin-top: 16px;
+  overflow-x: auto;
+  border-top: 1px solid #26364a;
+  border-bottom: 1px solid #26364a;
+  background: rgba(10, 16, 23, 0.94);
+  box-shadow: 0 12px 26px rgba(3, 7, 12, 0.18);
+  backdrop-filter: blur(12px);
+  scrollbar-width: none;
+}
+
+.almanac-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.almanac-nav-track {
+  display: flex;
+  align-items: stretch;
+  width: max-content;
+  min-width: 100%;
+}
+
+.almanac-nav-button {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 48px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 18px;
+  color: #7f91a8;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .105em;
+  transition: color .12s ease, background-color .12s ease;
+}
+
+.almanac-nav-button::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  bottom: -1px;
+  left: 14px;
+  height: 2px;
+  border-radius: 999px 999px 0 0;
+  background: #7ea6dc;
+  opacity: 0;
+  transform: scaleX(.45);
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+.almanac-nav-button:hover:not(:disabled) {
+  background: rgba(126, 166, 220, 0.04);
+  color: #d7e1ee;
+}
+
+.almanac-nav-button.active {
+  background: transparent;
+  color: #f2f6fb;
+}
+
+.almanac-nav-button.active::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.almanac-nav-badge {
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  border: 1px solid #735b3d;
+  border-radius: 999px;
+  background: #211a12;
+  color: #d9bb8e;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.almanac-section-content {
+  min-height: 340px;
+}
+
+.admin-section-intro {
+  margin-top: 22px;
+  padding: 0 2px;
+}
+
+.admin-section-intro h2 {
+  font-size: 26px;
+}
+
+.admin-section-intro > div > p:last-child {
+  max-width: 700px;
+  margin: 7px 0 0;
+  color: #8799af;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.admin-reconciliation-panel {
+  margin-top: 12px;
+}
+
+@media (max-width: 760px) {
+  .almanac-nav-button {
+    min-height: 45px;
+    padding: 0 14px;
+  }
+
+  .almanac-nav-button::after {
+    right: 11px;
+    left: 11px;
+  }
+}
