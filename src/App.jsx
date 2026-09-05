@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./polish.css";
 import { loadSleeperHistory } from "./data/sleeper/historyLoader";
 import { normalizeSleeperHistory } from "./domain/almanacNormalizer";
@@ -16,6 +16,7 @@ import { getMeaningfulCompetitiveGames } from "./domain/gameUtils";
 
 const LEAGUE_KEY = "league-almanac.currentLeagueId";
 const NAV_KEY = "league-almanac.activeSection";
+const THEME_KEY = "league-almanac.theme";
 
 const NAV_ITEMS = [
   { id: "overview", label: "OVERVIEW" },
@@ -25,6 +26,14 @@ const NAV_ITEMS = [
   { id: "rivalries", label: "RIVALRIES" },
   { id: "admin", label: "ADMIN" },
 ];
+
+function initialTheme() {
+  try {
+    return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
+}
 
 function initialNavSection() {
   try {
@@ -89,6 +98,16 @@ export default function App() {
   const [loadElapsedMs, setLoadElapsedMs] = useState(0);
   const [reviewIssueId, setReviewIssueId] = useState(null);
   const [activeSection, setActiveSection] = useState(initialNavSection);
+  const [theme, setTheme] = useState(initialTheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Theme still works if local storage is unavailable.
+    }
+  }, [theme]);
 
   function normalizeWithStoredOverrides(raw) {
     const newest = raw.seasons.at(-1);
@@ -185,6 +204,11 @@ export default function App() {
       .length || 0;
 
 
+
+  function toggleTheme() {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  }
+
   function selectSection(sectionId) {
     setActiveSection(sectionId);
 
@@ -227,24 +251,59 @@ export default function App() {
     setReviewIssueId(null);
   }
 
-  return (
-    <main className="almanac-shell">
-      <div className="masthead">
-        <div>
-          <p className="eyebrow">League Almanac</p>
-          <h1>{almanac?.leagueSeries?.name || "League Almanac"}</h1>
-          <p className="subhead">
-            Historical records, champions, managers, rivalries and league lore.
-          </p>
-        </div>
+  const statusLabel = loading ? "SYNCING" : almanac ? "LIVE" : "OFFLINE";
 
-        {almanac && (
-          <div className="masthead-meta">
-            <span>{completedSeasons} completed seasons</span>
-            <span>{almanac.managers.length} known managers</span>
-          </div>
-        )}
+  return (
+    <div className="almanac-app">
+      <div
+        className={`terminal-statusbar ${
+          loading ? "syncing" : almanac ? "online" : "offline"
+        }`}
+      >
+        <div className="terminal-status-left">
+          <span className="terminal-pulse" aria-hidden="true" />
+          <span className="terminal-status-label">{statusLabel}</span>
+          <span> · LOCAL · CACHED</span>
+        </div>
+        <div className="terminal-status-right">
+          {almanac
+            ? `CONNECTED · ${almanac.leagueSeries.name}`
+            : "AWAITING LEAGUE"}
+        </div>
       </div>
+
+      <main className="almanac-shell">
+        <div className="masthead">
+          <div className="masthead-brand">
+            <div className="almanac-logo" aria-hidden="true">A</div>
+            <div>
+              <p className="eyebrow">Front Office Terminal</p>
+              <h1>{almanac?.leagueSeries?.name || "League Almanac"}</h1>
+              <p className="subhead">
+                Historical records, champions, managers, rivalries and league lore.
+              </p>
+            </div>
+          </div>
+
+          <div className="masthead-utility">
+            {almanac && (
+              <div className="masthead-meta">
+                <span>{completedSeasons} completed seasons</span>
+                <span>{almanac.managers.length} known managers</span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="terminal-theme-toggle"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? "☼" : "☾"}
+            </button>
+          </div>
+        </div>
 
       <section className="panel load-panel">
         <div className="controls">
@@ -548,6 +607,7 @@ export default function App() {
           onLeaveUnresolved={leaveReviewUnresolved}
         />
       )}
-    </main>
+      </main>
+    </div>
   );
 }
