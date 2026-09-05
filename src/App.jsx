@@ -275,9 +275,9 @@ export default function App() {
       <main className="almanac-shell">
         <div className="masthead">
           <div className="masthead-brand">
-            <div className="almanac-logo" aria-hidden="true">A</div>
+            <div className="almanac-logo" aria-hidden="true">LA</div>
             <div>
-              <p className="eyebrow">Front Office Terminal</p>
+              <p className="eyebrow">League Almanac</p>
               <h1>{almanac?.leagueSeries?.name || "League Almanac"}</h1>
               <p className="subhead">
                 Historical records, champions, managers, rivalries and league lore.
@@ -300,7 +300,7 @@ export default function App() {
               aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
               title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             >
-              {theme === "dark" ? "☼" : "☾"}
+              {theme === "dark" ? "☀" : "☾"}
             </button>
           </div>
         </div>
