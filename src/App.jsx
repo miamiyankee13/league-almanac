@@ -277,7 +277,7 @@ export default function App() {
           <div className="masthead-brand">
             <div className="almanac-logo" aria-hidden="true">LA</div>
             <div>
-              <p className="eyebrow">League Almanac</p>
+              {almanac && <p className="eyebrow">League Almanac</p>}
               <h1>{almanac?.leagueSeries?.name || "League Almanac"}</h1>
               <p className="subhead">
                 Historical records, champions, managers, rivalries and league lore.
