@@ -1612,6 +1612,10 @@ th {
   background: #0d1824;
 }
 
+.record-card-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .record-card {
   min-width: 0;
   border: 1px solid #293a4e;

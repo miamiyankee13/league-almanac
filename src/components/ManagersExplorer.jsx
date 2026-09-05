@@ -44,46 +44,6 @@ export default function ManagersExplorer({ almanac }) {
           </div>
         )}
 
-        <div className="manager-leader-cards">
-          <article>
-            <span>Most Championships</span>
-            <strong>{data.managers[0]?.displayName || "—"}</strong>
-            <small>
-              {data.managers[0]
-                ? `${data.managers[0].championships} title${data.managers[0].championships === 1 ? "" : "s"}`
-                : "No completed championships"}
-            </small>
-          </article>
-
-          <article>
-            <span>Most H2H Wins</span>
-            <strong>
-              {[...data.managers].sort((a, b) => b.regular.wins - a.regular.wins)[0]
-                ?.displayName || "—"}
-            </strong>
-            <small>
-              {[...data.managers].sort((a, b) => b.regular.wins - a.regular.wins)[0]
-                ?.regular.wins || 0} wins
-            </small>
-          </article>
-
-          <article>
-            <span>Most Points For</span>
-            <strong>
-              {[...data.managers].sort(
-                (a, b) => b.regular.pointsFor - a.regular.pointsFor
-              )[0]?.displayName || "—"}
-            </strong>
-            <small>
-              {formatPoints(
-                [...data.managers].sort(
-                  (a, b) => b.regular.pointsFor - a.regular.pointsFor
-                )[0]?.regular.pointsFor
-              )} PF
-            </small>
-          </article>
-        </div>
-
         <div className="table-wrap managers-table-wrap">
           <table className="managers-table">
             <thead>

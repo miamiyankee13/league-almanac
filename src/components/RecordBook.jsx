@@ -610,7 +610,7 @@ function CareerOwner({ manager, detail }) {
   );
 }
 
-function CareerRecords({ data }) {
+function ManagerRecords({ data }) {
   return (
     <>
       {data.hasLeagueMedianSeasons && (
@@ -690,7 +690,7 @@ function CareerRecords({ data }) {
         />
       </div>
 
-      <div className="record-card-grid">
+      <div className="record-card-grid record-card-grid-three">
         <RecordCard
           label="Most Playoff Wins"
           value={data.mostPlayoffWins?.playoffs.wins ?? "—"}
@@ -732,84 +732,13 @@ function CareerRecords({ data }) {
           }
         />
 
-        <RecordCard
-          label="Most Seasons Managed"
-          value={data.mostSeasons?.primarySeasonCount ?? "—"}
-          owner={
-            data.mostSeasons ? (
-              <CareerOwner
-                manager={data.mostSeasons}
-                detail={`${data.mostSeasons.regular.games} regular-season games`}
-              />
-            ) : null
-          }
-        />
-      </div>
-
-      <div className="subsection-heading">
-        <div>
-          <p className="eyebrow">Career archive</p>
-          <h3>Manager Record Table</h3>
-        </div>
-        <span className="muted">Primary-manager credit only</span>
-      </div>
-
-      <div className="table-wrap">
-        <table className="record-book-table career-record-table">
-          <thead>
-            <tr>
-              <th>Manager</th>
-              <th>Seasons</th>
-              <th>H2H</th>
-              <th>Win %</th>
-              <th>PF</th>
-              <th>Playoff W/L</th>
-              <th>Playoffs</th>
-              <th>Finals</th>
-              <th>Titles</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.managers.map((manager) => (
-              <tr key={manager.managerId}>
-                <td>
-                  <strong>{manager.displayName}</strong>
-                  <span>
-                    {manager.current
-                      ? manager.currentTeamName || "Current"
-                      : `Last active ${manager.mostRecentSeason || "—"}`}
-                  </span>
-                </td>
-                <td>{manager.primarySeasonCount}</td>
-                <td className="record-cell">
-                  {formatRecord(manager.regular)}
-                </td>
-                <td>{formatPct(manager.winPct)}</td>
-                <td>{points(manager.regular.pointsFor)}</td>
-                <td className="record-cell">
-                  {formatRecord(manager.playoffs)}
-                </td>
-                <td>{manager.playoffAppearances}</td>
-                <td>{manager.finals}</td>
-                <td>
-                  {manager.championships > 0 ? (
-                    <span className="manager-title-badge">
-                      {manager.championships}
-                    </span>
-                  ) : (
-                    "0"
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
 
       <p className="standings-footnote record-book-footnote">
-        Career totals follow reconciled manager tenures. A replacement owner
-        inherits the franchise, not the previous manager&apos;s wins, points,
-        titles or playoff results.
+        Manager records follow reconciled tenures. A replacement owner inherits
+        the franchise, not the previous manager&apos;s wins, points, titles or
+        playoff results. The complete career standings live in the Managers
+        section.
       </p>
     </>
   );
@@ -853,14 +782,14 @@ export default function RecordBook({ almanac }) {
           className={tab === "careers" ? "active" : ""}
           onClick={() => setTab("careers")}
         >
-          CAREER RECORDS
+          MANAGER RECORDS
         </button>
       </div>
 
       <div className="record-book-body">
         {tab === "games" && <GameRecords data={data.games} />}
         {tab === "seasons" && <SeasonRecords data={data.seasons} />}
-        {tab === "careers" && <CareerRecords data={data.careers} />}
+        {tab === "careers" && <ManagerRecords data={data.careers} />}
       </div>
     </section>
   );
