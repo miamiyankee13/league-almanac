@@ -629,12 +629,15 @@ function RivalryRecords({ data }) {
 
         <RecordCard
           label="Tightest Series"
-          value={tightest ? seriesLeaderLabel(tightest, tightest.regular) : "—"}
+          value={tightest ? seriesLeaderLabel(tightest, tightest.all) : "—"}
           owner={
             tightest ? (
               <>
                 <strong>{pairName(tightest)}</strong>
-                <span>{tightest.regular.games} regular-season meetings</span>
+                <span>
+                  {tightest.all.games} total meeting
+                  {tightest.all.games === 1 ? "" : "s"} • {tightest.regular.games} regular • {tightest.playoffs.games} playoff
+                </span>
               </>
             ) : null
           }

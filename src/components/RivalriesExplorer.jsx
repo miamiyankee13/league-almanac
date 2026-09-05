@@ -54,11 +54,11 @@ function displayOrder(pair, focusManagerId) {
 }
 
 function seriesSummary(pair, focusManagerId) {
-  if (!pair?.regular?.games) return "No regular-season meetings";
+  if (!pair?.all?.games) return "No meetings";
 
   const order = displayOrder(pair, focusManagerId);
-  const primary = recordForManager(pair, pair.regular, order.primaryId);
-  const secondary = recordForManager(pair, pair.regular, order.secondaryId);
+  const primary = recordForManager(pair, pair.all, order.primaryId);
+  const secondary = recordForManager(pair, pair.all, order.secondaryId);
 
   if (primary.wins === secondary.wins) {
     return `Series tied ${formatRivalryRecord(primary)}`;

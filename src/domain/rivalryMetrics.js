@@ -352,10 +352,10 @@ function seriesDifferential(series) {
 }
 
 function tightnessScore(pair) {
-  if (!pair.regular.games) return Number.POSITIVE_INFINITY;
+  if (!pair.all.games) return Number.POSITIVE_INFINITY;
 
   const winBalance =
-    seriesDifferential(pair.regular) / Math.max(1, pair.regular.games);
+    seriesDifferential(pair.all) / Math.max(1, pair.all.games);
 
   return winBalance * 1000 + pair.averageMargin;
 }
@@ -440,7 +440,7 @@ export function buildRivalryMetrics(almanac) {
   const mostMeetings = rivalries[0] || null;
 
   const closestCandidates = rivalries.filter(
-    (pair) => pair.regular.games >= 3
+    (pair) => pair.all.games >= 3
   );
   const closestSeries = (
     closestCandidates.length ? closestCandidates : rivalries
@@ -449,7 +449,7 @@ export function buildRivalryMetrics(almanac) {
     .sort((a, b) => {
       const scoreDiff = tightnessScore(a) - tightnessScore(b);
       if (Math.abs(scoreDiff) > 1e-9) return scoreDiff;
-      return b.regular.games - a.regular.games;
+      return b.all.games - a.all.games;
     })[0] || null;
 
   const mostPlayoffMeetings =
