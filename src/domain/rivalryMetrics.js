@@ -360,6 +360,12 @@ function tightnessScore(pair) {
   return winBalance * 1000 + pair.averageMargin;
 }
 
+function lopsidednessScore(pair) {
+  if (!pair.all.games) return Number.NEGATIVE_INFINITY;
+
+  return seriesDifferential(pair.all) / Math.max(1, pair.all.games);
+}
+
 export function buildRivalryMetrics(almanac) {
   const eligibleManagerIds = new Set(
     almanac.managerTenures
@@ -452,6 +458,30 @@ export function buildRivalryMetrics(almanac) {
       return b.all.games - a.all.games;
     })[0] || null;
 
+  const lopsidedCandidates = rivalries.filter(
+    (pair) => pair.all.games >= 3
+  );
+  const mostLopsidedSeries = (
+    lopsidedCandidates.length ? lopsidedCandidates : rivalries
+  )
+    .slice()
+    .sort((a, b) => {
+      const scoreDiff = lopsidednessScore(b) - lopsidednessScore(a);
+      if (Math.abs(scoreDiff) > 1e-9) return scoreDiff;
+
+      if (b.all.games !== a.all.games) {
+        return b.all.games - a.all.games;
+      }
+
+      const rawDiff =
+        seriesDifferential(b.all) - seriesDifferential(a.all);
+      if (rawDiff !== 0) return rawDiff;
+
+      return `${a.managerAName}${a.managerBName}`.localeCompare(
+        `${b.managerAName}${b.managerBName}`
+      );
+    })[0] || null;
+
   const mostPlayoffMeetings =
     rivalries
       .filter((pair) => pair.playoffs.games > 0)
@@ -467,6 +497,7 @@ export function buildRivalryMetrics(almanac) {
     rivalries,
     mostMeetings,
     closestSeries,
+    mostLopsidedSeries,
     mostPlayoffMeetings,
     unattributedRegularGames,
     unattributedPlayoffGames,

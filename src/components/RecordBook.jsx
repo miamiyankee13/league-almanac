@@ -368,20 +368,27 @@ function SeasonRecords({ data }) {
   const noTitle = seasons.filter((entry) => !entry.champion);
   const mostPointsWithoutTitle = tiedMax(noTitle, (entry) => entry.h2h.pointsFor);
 
-  const seasonCard = ({ label, entries, value, detail }) => (
-    <RecordCard
-      label={label}
-      value={entries[0] ? value(entries[0]) : "—"}
-      owner={<SeasonRecordOwners entries={entries} />}
-      detail={
-        entries.length === 1
-          ? detail?.(entries[0]) || null
-          : entries.length > 1
-            ? "Tied record"
-            : null
-      }
-    />
-  );
+  const seasonCard = ({ label, entries, value, detail }) => {
+    const resolvedDetail =
+      entries.length === 1 ? detail?.(entries[0]) || null : null;
+
+    return (
+      <RecordCard
+        label={label}
+        value={entries[0] ? value(entries[0]) : "—"}
+        owner={<SeasonRecordOwners entries={entries} />}
+        detail={
+          entries.length === 1
+            ? resolvedDetail === "—"
+              ? null
+              : resolvedDetail
+            : entries.length > 1
+              ? "Tied record"
+              : null
+        }
+      />
+    );
+  };
 
   return (
     <>
@@ -397,7 +404,7 @@ function SeasonRecords({ data }) {
         {seasonCard({
           label: "Best H2H Record",
           entries: bestRecord,
-          value: (entry) => `${formatRecord(entry.h2h)} • ${formatPct(entry.winPct)}`,
+          value: (entry) => `${formatRecord(entry.h2h)} (${formatPct(entry.winPct)})`,
           detail: (entry) => entry.finish,
         })}
         {seasonCard({
@@ -426,7 +433,7 @@ function SeasonRecords({ data }) {
         {seasonCard({
           label: "Worst H2H Record",
           entries: worstRecord,
-          value: (entry) => `${formatRecord(entry.h2h)} • ${formatPct(entry.winPct)}`,
+          value: (entry) => `${formatRecord(entry.h2h)} (${formatPct(entry.winPct)})`,
           detail: (entry) => entry.finish,
         })}
         {seasonCard({
@@ -616,38 +623,55 @@ function RivalryRecords({ data }) {
     (pair) => pair.playoffs.games
   );
   const tightest = data.closestSeries;
+  const mostLopsided = data.mostLopsidedSeries;
+
+  const singleSeriesDetail = (pairs, seriesKey) =>
+    pairs.length === 1
+      ? seriesLeaderLabel(pairs[0], pairs[0][seriesKey])
+      : null;
+
+  const seriesOwner = (pair) =>
+    pair ? (
+      <>
+        <strong>{pairName(pair)}</strong>
+        <span>
+          {pair.all.games} total meeting
+          {pair.all.games === 1 ? "" : "s"} • {pair.regular.games} regular • {pair.playoffs.games} playoff
+        </span>
+      </>
+    ) : null;
 
   return (
     <>
-      <div className="record-card-grid record-card-grid-three rivalry-record-grid">
+      <div className="record-card-grid rivalry-record-grid">
         <RecordCard
           label="Most Meetings"
           value={mostMeetings[0]?.all.games ?? "—"}
           owner={<RivalryOwners pairs={mostMeetings} />}
-          detail={mostMeetings.length > 1 ? "Tied record" : null}
+          detail={singleSeriesDetail(mostMeetings, "all")}
         />
 
         <RecordCard
           label="Tightest Series"
           value={tightest ? seriesLeaderLabel(tightest, tightest.all) : "—"}
-          owner={
-            tightest ? (
-              <>
-                <strong>{pairName(tightest)}</strong>
-                <span>
-                  {tightest.all.games} total meeting
-                  {tightest.all.games === 1 ? "" : "s"} • {tightest.regular.games} regular • {tightest.playoffs.games} playoff
-                </span>
-              </>
-            ) : null
+          owner={seriesOwner(tightest)}
+        />
+
+        <RecordCard
+          label="Most Lopsided Series"
+          value={
+            mostLopsided
+              ? seriesLeaderLabel(mostLopsided, mostLopsided.all)
+              : "—"
           }
+          owner={seriesOwner(mostLopsided)}
         />
 
         <RecordCard
           label="Most Playoff Meetings"
           value={mostPlayoffMeetings[0]?.playoffs.games ?? "—"}
           owner={<RivalryOwners pairs={mostPlayoffMeetings} />}
-          detail={mostPlayoffMeetings.length > 1 ? "Tied record" : null}
+          detail={singleSeriesDetail(mostPlayoffMeetings, "playoffs")}
         />
       </div>
 
