@@ -1,0 +1,14 @@
+/* Keep multi-row KPI / record-card backgrounds visually consistent.
+   These rules intentionally match row 2 to the existing row 1 treatment. */
+
+/* Seasons tab:
+   Row 1 (.season-highlight) already uses --alm-bg. */
+.season-record-strip > div {
+  background: var(--alm-bg) !important;
+}
+
+/* Record Book:
+   Row 1 (.record-card-grid-primary .record-card) already uses --alm-panel-2. */
+.record-card {
+  background: var(--alm-panel-2) !important;
+}
