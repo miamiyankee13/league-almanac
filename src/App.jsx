@@ -179,10 +179,21 @@ export default function App() {
     ? getMeaningfulCompetitiveGames(almanac).length
     : 0;
 
+  const careerManagerCount = almanac
+    ? new Set(
+        almanac.managerTenures
+          .filter((tenure) =>
+            ["primary", "incoming_owner"].includes(tenure.role)
+          )
+          .map((tenure) => tenure.managerId)
+          .filter(Boolean)
+      ).size
+    : 0;
+
   const stats = almanac
     ? [
         ["Seasons", almanac.seasons.length],
-        ["Managers", almanac.managers.length],
+        ["Managers", careerManagerCount],
         ["Games", meaningfulCompetitiveGameCount],
       ]
     : [];
@@ -289,7 +300,7 @@ export default function App() {
             {almanac && (
               <div className="masthead-meta">
                 <span>{completedSeasons} completed seasons</span>
-                <span>{almanac.managers.length} known managers</span>
+                <span>{careerManagerCount} managers</span>
               </div>
             )}
 
