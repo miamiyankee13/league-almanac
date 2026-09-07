@@ -140,9 +140,16 @@ h3,
 
 h1 {
   margin: 0 !important;
-  font-size: clamp(24px, 3.2vw, 36px) !important;
+  font-size: 16px !important;
   font-weight: 700 !important;
   letter-spacing: -0.025em !important;
+}
+
+/* Match the sibling Dynasty Depth Chart and Rookie Board header title sizing. */
+@media (max-width: 520px) {
+  .masthead h1 {
+    font-size: 14px !important;
+  }
 }
 
 h2 {
@@ -290,9 +297,15 @@ h3 {
 }
 
 .masthead-brand.disconnected .almanac-logo {
-  /* Visually center the square LA mark against the large title line itself,
-     not against the title + subtitle block. */
-  margin-top: 10px;
+  /* With the sibling-app 16px title size, center the 34px LA mark against
+     the title line itself rather than the title + subtitle block. */
+  margin-top: -5px;
+}
+
+@media (max-width: 520px) {
+  .masthead-brand.disconnected .almanac-logo {
+    margin-top: -7px;
+  }
 }
 
 .almanac-logo {
