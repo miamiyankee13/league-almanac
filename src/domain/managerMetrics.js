@@ -29,6 +29,25 @@ function applyResult(record, pointsFor, pointsAgainst) {
   else record.ties += 1;
 }
 
+function applyAggregateRecord(record, snapshot) {
+  if (!snapshot?.recordKnown) return;
+
+  const wins = asNumber(snapshot.wins);
+  const losses = asNumber(snapshot.losses);
+  const ties = asNumber(snapshot.ties);
+
+  record.wins += wins;
+  record.losses += losses;
+  record.ties += ties;
+  record.games += wins + losses + ties;
+}
+
+function applyKnownWinLoss(record, won) {
+  record.games += 1;
+  if (won) record.wins += 1;
+  else record.losses += 1;
+}
+
 function winPct(record) {
   if (!record?.games) return 0;
   return (record.wins + record.ties * 0.5) / record.games;
@@ -68,6 +87,8 @@ function ensureSeason(stats, season, franchiseId) {
       teamName: null,
       franchiseNumber: null,
       finish: "—",
+      historicalOnly: false,
+      pointsKnown: true,
     });
   }
 
@@ -236,6 +257,10 @@ export function buildManagerMetrics(almanac) {
       avatar: manager?.avatar || null,
       regular: blankRecord(),
       playoffs: blankRecord(),
+      pointsGames: 0,
+      manualRegularGames: 0,
+      manualPlayoffGames: 0,
+      manualOpponentUnknownPlayoffOutcomes: 0,
       championships: 0,
       finals: 0,
       playoffAppearances: 0,
@@ -267,6 +292,35 @@ export function buildManagerMetrics(almanac) {
     seasonSummary.tenureRanges.push(tenure);
     seasonSummary.teamName ||= team?.teamName || null;
     seasonSummary.franchiseNumber ||= franchiseNumber(almanac, tenure.franchiseId);
+    seasonSummary.historicalOnly ||= Boolean(team?.historicalOnly);
+    seasonSummary.pointsKnown = team?.historicalOnly ? false : seasonSummary.pointsKnown;
+    if (team?.manualFinish) seasonSummary.finish = team.manualFinish;
+
+    if (team?.historicalOnly && team?.officialRecordSnapshot?.recordKnown) {
+      applyAggregateRecord(stats.regular, team.officialRecordSnapshot);
+      applyAggregateRecord(seasonSummary.regular, team.officialRecordSnapshot);
+      stats.manualRegularGames +=
+        asNumber(team.officialRecordSnapshot.wins) +
+        asNumber(team.officialRecordSnapshot.losses) +
+        asNumber(team.officialRecordSnapshot.ties);
+    }
+
+    if (team?.historicalOnly && team?.manualPlayoffAppearance) {
+      seasonSummary.playoffAppearance = true;
+    }
+
+    if (team?.historicalOnly && team?.manualOpponentUnknownPlayoffRecord?.games) {
+      const implied = {
+        ...team.manualOpponentUnknownPlayoffRecord,
+        recordKnown: true,
+      };
+      applyAggregateRecord(stats.playoffs, implied);
+      applyAggregateRecord(seasonSummary.playoffs, implied);
+      stats.manualOpponentUnknownPlayoffOutcomes += asNumber(implied.games);
+      seasonSummary.historicalOnly = true;
+      seasonSummary.pointsKnown = false;
+      seasonSummary.playoffAppearance = true;
+    }
 
     if (!stats.joinSeason || Number(tenure.season) < Number(stats.joinSeason)) {
       stats.joinSeason = tenure.season;
@@ -279,16 +333,15 @@ export function buildManagerMetrics(almanac) {
       stats.mostRecentSeason = tenure.season;
     }
 
-    if (tenure.season === latestSeason) {
+    if (tenure.season === latestSeason && !team?.historicalOnly) {
       stats.current = true;
       stats.currentFranchiseId = tenure.franchiseId;
       stats.currentTeamName = team?.teamName || null;
     }
 
-    seasonSummary.tenureLabel = tenureLabel(
-      seasonSummary.tenureRanges,
-      season
-    );
+    seasonSummary.tenureLabel = team?.historicalOnly
+      ? "Historical season"
+      : tenureLabel(seasonSummary.tenureRanges, season);
   }
 
   for (const game of almanac.games) {
@@ -307,12 +360,14 @@ export function buildManagerMetrics(almanac) {
       const pf = asNumber(side.points);
       const pa = asNumber(opponent.points);
       applyResult(stats.regular, pf, pa);
+      stats.pointsGames += 1;
 
       const seasonSummary = ensureSeason(
         stats,
         game.season,
         side.franchiseId
       );
+      seasonSummary.pointsKnown = true;
       applyResult(seasonSummary.regular, pf, pa);
 
       if (opponent.managerId) {
@@ -349,6 +404,43 @@ export function buildManagerMetrics(almanac) {
     }
   }
 
+  for (const game of almanac.manualPlayoffGames || []) {
+    const winnerManagerId = game?.winner?.managerId;
+    const loserManagerId = game?.loser?.managerId;
+
+    if (winnerManagerId && statsByManager.has(winnerManagerId)) {
+      const stats = statsByManager.get(winnerManagerId);
+      applyKnownWinLoss(stats.playoffs, true);
+      stats.manualPlayoffGames += 1;
+
+      const seasonSummary = ensureSeason(
+        stats,
+        game.season,
+        game.winner.franchiseId
+      );
+      seasonSummary.historicalOnly = true;
+      seasonSummary.pointsKnown = false;
+      seasonSummary.playoffAppearance = true;
+      applyKnownWinLoss(seasonSummary.playoffs, true);
+    }
+
+    if (loserManagerId && statsByManager.has(loserManagerId)) {
+      const stats = statsByManager.get(loserManagerId);
+      applyKnownWinLoss(stats.playoffs, false);
+      stats.manualPlayoffGames += 1;
+
+      const seasonSummary = ensureSeason(
+        stats,
+        game.season,
+        game.loser.franchiseId
+      );
+      seasonSummary.historicalOnly = true;
+      seasonSummary.pointsKnown = false;
+      seasonSummary.playoffAppearance = true;
+      applyKnownWinLoss(seasonSummary.playoffs, false);
+    }
+  }
+
   for (const champion of almanac.champions) {
     if (champion.winner.managerId && statsByManager.has(champion.winner.managerId)) {
       const stats = statsByManager.get(champion.winner.managerId);
@@ -382,7 +474,7 @@ export function buildManagerMetrics(almanac) {
 
   for (const stats of statsByManager.values()) {
     for (const seasonSummary of stats._seasonMap.values()) {
-      if (seasonSummary.playoffAppearance) {
+      if (seasonSummary.playoffAppearance && !seasonSummary.historicalOnly) {
         seasonSummary.finish = getPostseasonFinishForManager(
           almanac,
           seasonSummary.season,
@@ -396,10 +488,9 @@ export function buildManagerMetrics(almanac) {
       }
 
       const season = seasonByYear.get(seasonSummary.season);
-      seasonSummary.tenureLabel = tenureLabel(
-        seasonSummary.tenureRanges,
-        season
-      );
+      seasonSummary.tenureLabel = seasonSummary.historicalOnly
+        ? "Historical season"
+        : tenureLabel(seasonSummary.tenureRanges, season);
     }
 
     stats.seasons = [...stats._seasonMap.values()].sort(
@@ -457,8 +548,8 @@ export function buildManagerMetrics(almanac) {
 
     stats.winPct = winPct(stats.regular);
     stats.playoffWinPct = winPct(stats.playoffs);
-    stats.pointsPerGame = stats.regular.games
-      ? stats.regular.pointsFor / stats.regular.games
+    stats.pointsPerGame = stats.pointsGames
+      ? stats.regular.pointsFor / stats.pointsGames
       : 0;
     stats.primarySeasonCount = stats.seasons.length;
 
@@ -493,6 +584,7 @@ export function buildManagerMetrics(almanac) {
     hasLeagueMedianSeasons: almanac.seasons.some(
       (season) => season.recordFormat?.leagueMedianGameEnabled
     ),
+    hasManualHistory: Boolean(almanac.manualHistory?.seasons?.length),
   };
 }
 

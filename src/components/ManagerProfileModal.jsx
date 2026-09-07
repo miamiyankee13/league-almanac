@@ -8,9 +8,11 @@ function formatPoints(value) {
 }
 
 function seasonRecordLabel(season) {
-  return `${formatManagerRecord(season.regular)} • ${formatPoints(
-    season.regular.pointsFor
-  )} PF`;
+  return season.pointsKnown === false
+    ? `${formatManagerRecord(season.regular)} • PF unavailable`
+    : `${formatManagerRecord(season.regular)} • ${formatPoints(
+        season.regular.pointsFor
+      )} PF`;
 }
 
 function matchupDetail(matchup) {
@@ -20,7 +22,7 @@ function matchupDetail(matchup) {
   }`;
 }
 
-export default function ManagerProfileModal({ manager, onClose }) {
+export default function ManagerProfileModal({ manager, hasManualHistory, onClose }) {
   if (!manager) return null;
 
   const activeLabel = manager.current
@@ -67,15 +69,19 @@ export default function ManagerProfileModal({ manager, onClose }) {
             <strong>{formatManagerWinPct(manager.winPct)}</strong>
           </div>
           <div>
-            <span>Points For</span>
-            <strong>{formatPoints(manager.regular.pointsFor)}</strong>
+            <span>{hasManualHistory ? "Recorded Points For" : "Points For"}</span>
+            <strong>
+              {manager.pointsGames ? formatPoints(manager.regular.pointsFor) : "—"}
+            </strong>
           </div>
           <div>
             <span>PF / Game</span>
-            <strong>{formatPoints(manager.pointsPerGame)}</strong>
+            <strong>
+              {manager.pointsGames ? formatPoints(manager.pointsPerGame) : "—"}
+            </strong>
           </div>
           <div>
-            <span>Playoffs</span>
+            <span>{hasManualHistory ? "Documented Playoffs" : "Playoffs"}</span>
             <strong>{manager.playoffAppearances}</strong>
           </div>
           <div>
@@ -87,7 +93,7 @@ export default function ManagerProfileModal({ manager, onClose }) {
             <strong>{manager.championships}</strong>
           </div>
           <div>
-            <span>Playoff Record</span>
+            <span>{hasManualHistory ? "Documented Playoff Record" : "Playoff Record"}</span>
             <strong>{formatManagerRecord(manager.playoffs)}</strong>
           </div>
         </div>
@@ -144,7 +150,7 @@ export default function ManagerProfileModal({ manager, onClose }) {
                 <th>H2H</th>
                 <th>Win %</th>
                 <th>PF</th>
-                <th>Playoffs</th>
+                <th>{hasManualHistory ? "Documented Playoff W/L" : "Playoffs"}</th>
                 <th>Finish</th>
               </tr>
             </thead>
@@ -169,9 +175,13 @@ export default function ManagerProfileModal({ manager, onClose }) {
                         : 0
                     )}
                   </td>
-                  <td>{formatPoints(season.regular.pointsFor)}</td>
                   <td>
-                    {season.playoffAppearance
+                    {season.pointsKnown === false
+                      ? "—"
+                      : formatPoints(season.regular.pointsFor)}
+                  </td>
+                  <td>
+                    {season.playoffAppearance && season.playoffs.games
                       ? formatManagerRecord(season.playoffs)
                       : "—"}
                   </td>
@@ -195,10 +205,25 @@ export default function ManagerProfileModal({ manager, onClose }) {
         </div>
 
         <div className="manager-profile-note">
-          Career records use actual head-to-head regular-season games. Playoff
-          records are tracked separately and include championship-path games plus
-          the official 3rd-place game. League-median bonus results are excluded
-          from manager-vs-manager records.
+          {hasManualHistory ? (
+            <>
+              Commissioner-entered standings can extend career regular-season W/L
+              and seasons managed. Entered playoff field size can extend playoff
+              appearances. Podium finishes add the minimum playoff W/L they prove:
+              when a semifinal round is known, Champion and Runner-up each receive one
+              required pre-final win; 3rd Place receives one semifinal loss plus one
+              3rd-place win. Only the exact Champion vs. Runner-up final becomes a
+              rivalry meeting. Additional opponents/rounds, PF, margins and streaks are
+              not invented. League-median bonus results remain excluded.
+            </>
+          ) : (
+            <>
+              Career records use actual head-to-head regular-season games. Playoff
+              records are tracked separately and include championship-path games plus
+              the official 3rd-place game. League-median bonus results are excluded
+              from manager-vs-manager records.
+            </>
+          )}
         </div>
       </section>
     </div>

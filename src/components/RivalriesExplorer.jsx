@@ -74,6 +74,17 @@ function seriesSummary(pair, focusManagerId) {
 function meetingResult(meeting) {
   if (!meeting) return "—";
 
+  if (meeting.scoreKnown === false) {
+    if (!meeting.winnerManagerId) {
+      return `${meeting.managerAName} vs. ${meeting.managerBName} • result known, score unavailable`;
+    }
+
+    const winnerIsA = meeting.winnerManagerId === meeting.managerAId;
+    const winnerName = winnerIsA ? meeting.managerAName : meeting.managerBName;
+    const loserName = winnerIsA ? meeting.managerBName : meeting.managerAName;
+    return `${winnerName} def. ${loserName} • score unavailable`;
+  }
+
   if (!meeting.winnerManagerId) {
     return `${meeting.managerAName} tied ${meeting.managerBName} ${Number(
       meeting.pointsA
@@ -96,9 +107,10 @@ function latestMeetingReceipt(pair) {
   if (!meeting) return "No meetings yet";
 
   const stage = meeting.isPlayoff ? ` · ${meeting.stage}` : "";
-  return `Last: ${meeting.season} W${meeting.week}${stage} — ${meetingResult(
-    meeting
-  )}`;
+  const timing = meeting.week == null
+    ? `${meeting.season}${stage}`
+    : `${meeting.season} W${meeting.week}${stage}`;
+  return `Last: ${timing} — ${meetingResult(meeting)}`;
 }
 
 export default function RivalriesExplorer({ almanac }) {
@@ -223,6 +235,16 @@ export default function RivalriesExplorer({ almanac }) {
           </label>
         </div>
 
+        {data.hasPartialHistoricalCoverage && (
+          <div className="notice compact-notice manager-record-notice">
+            <strong>Pre-Sleeper rivalry coverage is partial.</strong>{" "}
+            Commissioner-entered Champion vs. Runner-up results count as known
+            playoff and overall meetings. Unavailable historical regular-season
+            matchups are not reconstructed; margin, scoring and streak metrics use
+            only scored matchups with complete chronology.
+          </div>
+        )}
+
         {(data.unattributedRegularGames > 0 ||
           data.unattributedPlayoffGames > 0) && (
           <div className="rivalry-data-note">
@@ -293,7 +315,9 @@ export default function RivalriesExplorer({ almanac }) {
 
         <p className="standings-footnote rivalry-footnote compact">
           Current Owners shows active manager pairings. League-median bonus games
-          and lower placement playoff games are excluded from rivalry records.
+          and lower placement playoff games are excluded. Commissioner-entered known
+          championship results are included without inventing scores or missing
+          pre-Sleeper regular-season meetings.
         </p>
       </section>
 

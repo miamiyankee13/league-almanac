@@ -1,11 +1,13 @@
 import { seriesLeaderLabel } from "../domain/rivalryMetrics";
 
 function points(value) {
-  return Number(value || 0).toFixed(2);
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  return Number(value).toFixed(2);
 }
 
 function margin(value) {
-  return Number(value || 0).toFixed(2);
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  return Number(value).toFixed(2);
 }
 
 function displayOrder(rivalry, focusManagerId) {
@@ -30,6 +32,17 @@ function displayOrder(rivalry, focusManagerId) {
 
 function meetingResult(meeting) {
   if (!meeting) return "—";
+
+  if (meeting.scoreKnown === false) {
+    if (!meeting.winnerManagerId) {
+      return `${meeting.managerAName} vs. ${meeting.managerBName} • score unavailable`;
+    }
+
+    const winnerIsA = meeting.winnerManagerId === meeting.managerAId;
+    const winnerName = winnerIsA ? meeting.managerAName : meeting.managerBName;
+    const loserName = winnerIsA ? meeting.managerBName : meeting.managerAName;
+    return `${winnerName} def. ${loserName} • score unavailable`;
+  }
 
   if (!meeting.winnerManagerId) {
     return `${meeting.managerAName} tied ${meeting.managerBName} ${points(
@@ -87,7 +100,7 @@ function storyCard(label, meeting, value) {
 
 function currentStreakCard(rivalry) {
   const streak = rivalry.currentStreak;
-  const latest = rivalry.latestMeeting;
+  const latest = rivalry.streakThroughMeeting;
 
   return (
     <article>
@@ -98,7 +111,9 @@ function currentStreakCard(rivalry) {
           ? `Through ${latest.season} W${latest.week}${
               latest.isPlayoff ? ` · ${latest.stage}` : ""
             }`
-          : "No meeting available"}
+          : rivalry.manualMeetingCount
+            ? "Partial historical meetings do not define a streak"
+            : "No meeting available"}
       </small>
     </article>
   );
@@ -115,6 +130,8 @@ function playoffSeriesLabel(pair, breakdown) {
 }
 
 function pointDifferentialLabel(rivalry) {
+  if (!rivalry.all.scoredGames) return "Unavailable";
+
   const diff = Number(rivalry.all.pointsA || 0) - Number(rivalry.all.pointsB || 0);
 
   if (Math.abs(diff) < 1e-9) return "Even";
@@ -169,6 +186,16 @@ export default function RivalryProfileModal({
           </button>
         </div>
 
+        {rivalry.manualMeetingCount > 0 && (
+          <div className="notice compact-notice manager-record-notice">
+            <strong>Partial pre-Sleeper coverage.</strong>{" "}
+            Known commissioner-entered championship results count toward the
+            overall and playoff series. Missing historical regular-season meetings
+            are not reconstructed, and score/margin/streak metrics use only scored
+            matchups with complete chronology.
+          </div>
+        )}
+
         <div className="rivalry-overall-banner">
           <div className="rivalry-series-card rivalry-overall-series-card">
             <span>Overall Series</span>
@@ -198,12 +225,16 @@ export default function RivalryProfileModal({
 
         <div className="manager-profile-metrics rivalry-profile-metrics rivalry-profile-metrics-two">
           <div>
-            <span>Point Differential</span>
+            <span>{rivalry.unknownScoreMeetingCount ? "Recorded Point Differential" : "Point Differential"}</span>
             <strong>{pointDifferentialLabel(rivalry)}</strong>
           </div>
           <div>
-            <span>Avg Margin</span>
-            <strong>{margin(rivalry.averageMargin)} pts</strong>
+            <span>{rivalry.unknownScoreMeetingCount ? "Recorded Avg Margin" : "Avg Margin"}</span>
+            <strong>
+              {Number.isFinite(rivalry.averageMargin)
+                ? `${margin(rivalry.averageMargin)} pts`
+                : "Unavailable"}
+            </strong>
           </div>
         </div>
 
@@ -259,9 +290,11 @@ export default function RivalryProfileModal({
                   <td>{seasonSeriesLabel(rivalry, season)}</td>
                   <td>{playoffSeriesLabel(rivalry, season)}</td>
                   <td className="record-cell">
-                    {order.primaryIsA
-                      ? `${points(season.pointsA)} – ${points(season.pointsB)}`
-                      : `${points(season.pointsB)} – ${points(season.pointsA)}`}
+                    {season.scoredMeetings
+                      ? order.primaryIsA
+                        ? `${points(season.pointsA)} – ${points(season.pointsB)}`
+                        : `${points(season.pointsB)} – ${points(season.pointsA)}`
+                      : "—"}
                   </td>
                 </tr>
               ))}
@@ -301,7 +334,7 @@ export default function RivalryProfileModal({
                     <td>
                       <strong>{meeting.season}</strong>
                     </td>
-                    <td>{meeting.week}</td>
+                    <td>{meeting.week == null ? "—" : meeting.week}</td>
                     <td>
                       <span
                         className={
@@ -312,6 +345,11 @@ export default function RivalryProfileModal({
                       >
                         {meeting.isPlayoff ? meeting.stage : "Regular"}
                       </span>
+                      {meeting.sourceType === "manual" && (
+                        <span className="manual-source-chip manual-source-chip-inline">
+                          Manual
+                        </span>
+                      )}
                     </td>
                     <td>
                       <strong className="rivalry-result">
@@ -321,7 +359,9 @@ export default function RivalryProfileModal({
                         {meetingTeamContext(meeting, order)}
                       </span>
                     </td>
-                    <td>{margin(meeting.margin)}</td>
+                    <td>
+                      {meeting.scoreKnown === false ? "—" : margin(meeting.margin)}
+                    </td>
                   </tr>
                 ))}
             </tbody>
@@ -329,9 +369,11 @@ export default function RivalryProfileModal({
         </div>
 
         <div className="manager-profile-note">
-          Rivalry records use actual manager-vs-manager games. League-median
-          bonus results are excluded. Playoff records include championship-path
-          games and the official 3rd-place game.
+          Rivalry series use known manager-vs-manager results. Sleeper matchup
+          history supplies complete scored meetings; commissioner-entered Champion
+          vs. Runner-up can add a scoreless known championship result. League-median
+          bonus results and lower placement playoff games are excluded. Missing
+          pre-Sleeper regular-season matchups are not inferred.
         </div>
       </section>
     </div>

@@ -320,8 +320,9 @@ function GameRecords({ data }) {
       </div>
 
       <p className="standings-footnote record-book-footnote">
-        Game records include regular-season games, championship-path playoff
-        games and the official 3rd-place game. Lower placement games are excluded.
+        Game records include only matchup-level regular-season games, championship-
+        path playoff games and the official 3rd-place game. Commissioner-entered
+        season standings do not create synthetic games. Lower placement games are excluded.
       </p>
     </>
   );
@@ -335,6 +336,7 @@ function SeasonRecordOwner({ entry }) {
       <strong>{entry.managerLineage}</strong>
       <span>
         {entry.teamName} • {entry.season}
+        {entry.historicalOnly ? " • commissioner entered" : ""}
       </span>
     </>
   );
@@ -358,14 +360,16 @@ function SeasonRecordOwners({ entries }) {
 
 function SeasonRecords({ data }) {
   const seasons = data.seasons;
-  const bestRecord = tiedMax(seasons, (entry) => entry.winPct);
-  const mostWins = tiedMax(seasons, (entry) => entry.h2h.wins);
-  const mostPoints = tiedMax(seasons, (entry) => entry.h2h.pointsFor);
-  const bestPointDiff = tiedMax(seasons, (entry) => entry.pointDiff);
-  const worstRecord = tiedMin(seasons, (entry) => entry.winPct);
-  const fewestPoints = tiedMin(seasons, (entry) => entry.h2h.pointsFor);
-  const worstPointDiff = tiedMin(seasons, (entry) => entry.pointDiff);
-  const noTitle = seasons.filter((entry) => !entry.champion);
+  const recordSeasons = seasons.filter((entry) => entry.recordKnown);
+  const pointSeasons = seasons.filter((entry) => entry.pointsKnown);
+  const bestRecord = tiedMax(recordSeasons, (entry) => entry.winPct);
+  const mostWins = tiedMax(recordSeasons, (entry) => entry.h2h.wins);
+  const mostPoints = tiedMax(pointSeasons, (entry) => entry.h2h.pointsFor);
+  const bestPointDiff = tiedMax(pointSeasons, (entry) => entry.pointDiff);
+  const worstRecord = tiedMin(recordSeasons, (entry) => entry.winPct);
+  const fewestPoints = tiedMin(pointSeasons, (entry) => entry.h2h.pointsFor);
+  const worstPointDiff = tiedMin(pointSeasons, (entry) => entry.pointDiff);
+  const noTitle = pointSeasons.filter((entry) => !entry.champion);
   const mostPointsWithoutTitle = tiedMax(noTitle, (entry) => entry.h2h.pointsFor);
 
   const seasonCard = ({ label, entries, value, detail }) => {
@@ -397,6 +401,14 @@ function SeasonRecords({ data }) {
           <strong>Season records use actual H2H games.</strong> League-median
           bonus results are excluded here so different eras remain comparable.
           Sleeper&apos;s official record remains available in Season Explorer.
+        </div>
+      )}
+
+      {data.hasManualHistory && (
+        <div className="notice compact-notice record-book-notice">
+          <strong>Commissioner-entered season W/L can qualify for record-based cards.</strong>{" "}
+          Points-for, point-differential and weekly score records remain matchup-data
+          only because no historical scoring data was entered.
         </div>
       )}
 
@@ -499,7 +511,8 @@ function ManagerRecords({ data }) {
     (manager) => manager.regular.games >= data.bestWinPctMinimumGames
   );
   const bestWinPct = tiedMax(bestWinPool, (manager) => manager.winPct);
-  const mostCareerPF = tiedMax(managers, (manager) => manager.regular.pointsFor);
+  const pointManagers = managers.filter((manager) => manager.pointsGames > 0);
+  const mostCareerPF = tiedMax(pointManagers, (manager) => manager.regular.pointsFor);
   const mostPlayoffWins = tiedMax(managers, (manager) => manager.playoffs.wins);
   const mostFinals = tiedMax(managers, (manager) => manager.finals);
   const mostPlayoffAppearances = tiedMax(
@@ -531,13 +544,25 @@ function ManagerRecords({ data }) {
         </div>
       )}
 
+      {data.hasManualHistory && (
+        <div className="notice compact-notice record-book-notice">
+          <strong>Manual history extends any result the entered facts prove.</strong>{" "}
+          Regular-season W/L, titles/finals and configured playoff fields can extend
+          career history. Podium finishes add minimum documented playoff outcomes;
+          only exact known championship opponents extend rivalry H2H. Score-based
+          records remain limited to scored matchups.
+        </div>
+      )}
+
       <div className="record-card-grid record-card-grid-primary">
         {careerCard({
           label: "Most Championships",
           entries: mostTitles,
           value: (manager) => manager.championships,
           detail: (manager) =>
-            `${manager.finals} finals • ${manager.playoffAppearances} playoff appearances`,
+            data.hasManualHistory
+              ? `${manager.finals} finals • ${manager.primarySeasonCount} seasons managed`
+              : `${manager.finals} finals • ${manager.playoffAppearances} playoff appearances`,
         })}
         {careerCard({
           label: "Most Regular-Season Wins",
@@ -555,7 +580,7 @@ function ManagerRecords({ data }) {
           context: `${data.bestWinPctMinimumGames}-game minimum`,
         })}
         {careerCard({
-          label: "Most Career Points",
+          label: data.hasManualHistory ? "Most Recorded Career Points" : "Most Career Points",
           entries: mostCareerPF,
           value: (manager) => points(manager.regular.pointsFor),
           detail: (manager) => `${points(manager.pointsPerGame)} PF/G`,
@@ -564,10 +589,10 @@ function ManagerRecords({ data }) {
 
       <div className="record-card-grid record-card-grid-three">
         {careerCard({
-          label: "Most Playoff Wins",
+          label: data.hasManualHistory ? "Most Documented Playoff Wins" : "Most Playoff Wins",
           entries: mostPlayoffWins,
           value: (manager) => manager.playoffs.wins,
-          detail: (manager) => `${formatRecord(manager.playoffs)} playoff record`,
+          detail: (manager) => `${formatRecord(manager.playoffs)} documented playoff record`,
         })}
         {careerCard({
           label: "Most Finals",
@@ -576,7 +601,7 @@ function ManagerRecords({ data }) {
           detail: (manager) => `${manager.championships} championships`,
         })}
         {careerCard({
-          label: "Most Playoff Appearances",
+          label: data.hasManualHistory ? "Most Documented Playoff Appearances" : "Most Playoff Appearances",
           entries: mostPlayoffAppearances,
           value: (manager) => manager.playoffAppearances,
           detail: (manager) => `${manager.finals} finals`,
@@ -585,8 +610,11 @@ function ManagerRecords({ data }) {
 
       <p className="standings-footnote record-book-footnote">
         Manager records follow reconciled tenures. A replacement owner inherits
-        the franchise, not the previous manager&apos;s career statistics. The full
-        career standings live in Managers.
+        the franchise, not the previous manager&apos;s career statistics. Commissioner-
+        entered aggregate W/L and playoff field size can extend career history. A known
+        Champion vs. Runner-up adds the exact final to manager and rivalry history; podium
+        finishes also add only the minimum additional playoff outcomes their finish proves.
+        Unknown opponents and additional rounds are not inferred.
       </p>
     </>
   );
@@ -676,8 +704,11 @@ function RivalryRecords({ data }) {
       </div>
 
       <p className="standings-footnote record-book-footnote">
-        Rivalry records use actual manager-vs-manager games. Playoff meetings
-        include championship-path games and the official 3rd-place game.
+        Rivalry records include scored Sleeper matchups plus any commissioner-entered
+        championship result whose Champion and Runner-up are known. Pre-Sleeper regular-
+        season matchups are not reconstructed, so historical rivalry coverage can be
+        partial. Score/margin/streak metrics use only scored matchups with complete
+        chronology.
       </p>
     </>
   );

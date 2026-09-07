@@ -1,0 +1,278 @@
+.manual-history-panel {
+  margin-top: 16px !important;
+}
+
+.manual-history-scope-note {
+  margin-bottom: 14px;
+}
+
+.manual-history-coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 14px 0 22px;
+  border: 1px solid var(--alm-line);
+  background: var(--alm-line);
+}
+
+.manual-history-coverage-grid > div {
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--alm-panel-2);
+}
+
+.manual-history-coverage-grid span,
+.manual-history-season-create label > span,
+.manual-season-meta-editor label > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--alm-dim);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.manual-history-coverage-grid strong {
+  color: var(--alm-text);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.manual-history-subheading {
+  margin-top: 20px;
+}
+
+.manual-history-create-row,
+.manual-manager-row,
+.manual-history-season-create,
+.manual-season-card-header,
+.manual-season-actions,
+.manual-season-meta-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.manual-history-create-row input {
+  min-width: min(320px, 100%);
+}
+
+.manual-manager-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.manual-manager-row {
+  padding: 8px;
+  border: 1px solid var(--alm-line);
+  background: var(--alm-panel-3);
+}
+
+.manual-manager-row input {
+  flex: 1 1 220px;
+  min-width: 140px;
+}
+
+.manual-source-chip,
+.manual-dirty-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in oklab, var(--alm-amber) 45%, var(--alm-line));
+  color: var(--alm-amber);
+  background: var(--alm-amber-08);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.manual-dirty-label {
+  border-color: var(--alm-line-2);
+  color: var(--alm-dim);
+  background: var(--alm-panel-3);
+}
+
+.manual-history-season-create {
+  align-items: end;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.manual-history-season-create label {
+  min-width: 110px;
+}
+
+.manual-history-season-create label:nth-child(2) {
+  min-width: 170px;
+}
+
+.manual-history-season-create input {
+  width: 100%;
+}
+
+.manual-history-message {
+  margin: 8px 0 0 !important;
+  color: var(--alm-amber) !important;
+}
+
+.manual-history-empty {
+  margin-top: 12px;
+}
+
+.manual-history-season-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.manual-season-card {
+  border: 1px solid var(--alm-line);
+  background: var(--alm-panel);
+}
+
+.manual-season-card-header {
+  justify-content: space-between;
+  padding: 12px 13px;
+  border-bottom: 1px solid var(--alm-line);
+  background: var(--alm-panel-2);
+}
+
+.manual-season-card-header h3 {
+  margin: 5px 0 0;
+  font-size: 15px !important;
+}
+
+.manual-season-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.manual-season-meta-editor {
+  align-items: end;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--alm-line);
+}
+
+.manual-season-meta-editor label {
+  min-width: 150px;
+}
+
+.manual-season-note-field {
+  flex: 1 1 340px;
+}
+
+.manual-season-meta-editor input {
+  width: 100%;
+}
+
+.manual-history-table-wrap {
+  border: 0 !important;
+  border-bottom: 1px solid var(--alm-line);
+  overflow-x: auto;
+}
+
+.manual-history-table {
+  min-width: 900px;
+}
+
+.manual-history-table th,
+.manual-history-table td {
+  vertical-align: middle;
+}
+
+.manual-history-table td {
+  padding: 6px !important;
+}
+
+.manual-history-table input,
+.manual-history-table select {
+  width: 100%;
+  min-width: 0;
+}
+
+.manual-history-table td:nth-child(1) {
+  width: 60px;
+}
+
+.manual-history-table td:nth-child(2) {
+  min-width: 220px;
+}
+
+.manual-history-table td:nth-child(3) {
+  min-width: 210px;
+}
+
+.manual-history-table td:nth-child(4),
+.manual-history-table td:nth-child(5),
+.manual-history-table td:nth-child(6) {
+  width: 65px;
+}
+
+.manual-history-table td:nth-child(7) {
+  min-width: 150px;
+}
+
+.manual-rank-input,
+.manual-record-input {
+  text-align: center;
+}
+
+.manual-history-footnote {
+  margin: 0 !important;
+  padding: 9px 12px 11px;
+}
+
+.manual-history-active-note {
+  margin-top: 12px;
+}
+
+.history-source-line {
+  color: var(--alm-dim);
+}
+
+@media (max-width: 760px) {
+  .manual-history-coverage-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-history-create-row,
+  .manual-manager-row,
+  .manual-season-card-header,
+  .manual-season-meta-editor {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manual-history-create-row input,
+  .manual-manager-row input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .manual-season-actions {
+    justify-content: flex-start;
+  }
+}
+
+.manual-history-storage-note {
+  margin: 14px 0 0 !important;
+}
+
+.manual-source-chip-inline {
+  margin-left: 7px;
+  min-height: 18px;
+  padding: 2px 5px;
+  vertical-align: middle;
+}
+
+.history-source-note {
+  display: block;
+  margin-top: 6px;
+  color: var(--alm-dim);
+  font-size: 10px;
+}

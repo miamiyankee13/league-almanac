@@ -22,6 +22,23 @@ function blankRecord() {
   };
 }
 
+function aggregateRecordFromSnapshot(snapshot) {
+  if (!snapshot?.recordKnown) return blankRecord();
+
+  const wins = num(snapshot.wins);
+  const losses = num(snapshot.losses);
+  const ties = num(snapshot.ties);
+
+  return {
+    wins,
+    losses,
+    ties,
+    games: wins + losses + ties,
+    pointsFor: 0,
+    pointsAgainst: 0,
+  };
+}
+
 function addResult(record, pointsFor, pointsAgainst) {
   record.games += 1;
   record.pointsFor += pointsFor;
@@ -374,14 +391,24 @@ function buildSeasonRecords(almanac) {
         team.season,
         team.franchiseId
       ),
-      h2h: blankRecord(),
+      h2h: team.historicalOnly
+        ? aggregateRecordFromSnapshot(team.officialRecordSnapshot)
+        : blankRecord(),
       official: team.officialRecordSnapshot,
+      recordKnown: team.historicalOnly
+        ? Boolean(team.officialRecordSnapshot?.recordKnown)
+        : true,
+      pointsKnown: !team.historicalOnly,
+      historicalOnly: Boolean(team.historicalOnly),
+      sourcePlatform: team.sourcePlatform || null,
       pointDiff: 0,
-      finish: getPostseasonFinishForRoster(
-        almanac,
-        team.season,
-        team.rosterId
-      ),
+      finish: team.historicalOnly
+        ? team.manualFinish || "—"
+        : getPostseasonFinishForRoster(
+            almanac,
+            team.season,
+            team.rosterId
+          ),
       champion: false,
       leagueMedianEnabled: Boolean(
         almanac.seasons.find(
@@ -488,12 +515,14 @@ function buildSeasonRecords(almanac) {
     (a, b) => b.h2h.pointsFor - a.h2h.pointsFor
   );
 
-  const leaderboard = [...seasons].sort(
-    (a, b) =>
-      b.winPct - a.winPct ||
-      b.h2h.wins - a.h2h.wins ||
-      b.h2h.pointsFor - a.h2h.pointsFor
-  );
+  const leaderboard = seasons
+    .filter((row) => row.recordKnown)
+    .sort(
+      (a, b) =>
+        b.winPct - a.winPct ||
+        b.h2h.wins - a.h2h.wins ||
+        b.h2h.pointsFor - a.h2h.pointsFor
+    );
 
   return {
     seasons,
@@ -510,6 +539,7 @@ function buildSeasonRecords(almanac) {
     hasLeagueMedianSeasons: seasons.some(
       (row) => row.leagueMedianEnabled
     ),
+    hasManualHistory: seasons.some((row) => row.historicalOnly),
   };
 }
 
@@ -603,6 +633,7 @@ function buildCareerRecords(almanac) {
     mostSeasons,
     hasLeagueMedianSeasons:
       managerData.hasLeagueMedianSeasons,
+    hasManualHistory: managerData.hasManualHistory,
   };
 }
 

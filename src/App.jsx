@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./polish.css";
 import { loadSleeperHistory } from "./data/sleeper/historyLoader";
 import { normalizeSleeperHistory } from "./domain/almanacNormalizer";
+import { applyManualHistory } from "./domain/manualHistory";
 import {
   loadCommissionerState,
   removeOwnershipOverride,
@@ -12,6 +13,7 @@ import SeasonExplorer from "./components/SeasonExplorer";
 import ManagersExplorer from "./components/ManagersExplorer";
 import RivalriesExplorer from "./components/RivalriesExplorer";
 import RecordBook from "./components/RecordBook";
+import ManualHistoryAdmin from "./components/ManualHistoryAdmin";
 import { getMeaningfulCompetitiveGames } from "./domain/gameUtils";
 
 const LEAGUE_KEY = "league-almanac.currentLeagueId";
@@ -114,9 +116,11 @@ export default function App() {
     const leagueSeriesId = `sleeper-series:${newest.league.league_id}`;
     const commissionerState = loadCommissionerState(leagueSeriesId);
 
-    return normalizeSleeperHistory(raw, {
+    const sleeperAlmanac = normalizeSleeperHistory(raw, {
       ownershipOverrides: commissionerState.ownershipOverrides,
     });
+
+    return applyManualHistory(sleeperAlmanac, commissionerState.manualHistory);
   }
 
   async function loadLeague({ forceRefresh = false } = {}) {
@@ -205,6 +209,9 @@ export default function App() {
     almanac?.seasons.filter(
       (season) => season.recordFormat?.leagueMedianGameEnabled
     ) || [];
+
+  const manualSeasons =
+    almanac?.seasons.filter((season) => season.historicalOnly) || [];
 
   const unresolvedOwnershipCount =
     almanac?.ownershipIssues.filter((issue) => issue.status !== "resolved")
@@ -427,6 +434,18 @@ export default function App() {
                   </section>
                 )}
 
+                {manualSeasons.length > 0 && (
+                  <section className="notice manual-history-active-note">
+                    <strong>Commissioner-entered history is active.</strong>{" "}
+                    Historical standings, regular-season records, playoff field size and
+                    known podium finishes can extend career/title history. Podium finishes
+                    also add the minimum documented playoff W/L they prove; only the exact
+                    Champion vs. Runner-up final creates a rivalry meeting. The Games KPI,
+                    scoring/margin records, missing pre-Sleeper regular-season H2H and
+                    additional unknown playoff rounds are never reconstructed.
+                  </section>
+                )}
+
                 <section className="panel">
                   <div className="section-heading">
                     <div>
@@ -440,26 +459,26 @@ export default function App() {
                   </div>
 
                   <div className="champion-grid">
-                    {almanac.champions.map((champion) => (
+                    {[...almanac.champions]
+                      .sort((a, b) => Number(b.season) - Number(a.season))
+                      .map((champion) => (
                       <article className="champion-card" key={champion.championId}>
                         <div className="champion-season">{champion.season}</div>
                         <div className="champion-kicker">League Champion</div>
                         <h3>{managerName(almanac, champion.winner.managerId)}</h3>
                         <div className="champion-team">{champion.winner.teamName}</div>
 
-                        <div className="champion-score">
-                          <strong>
-                            {champion.winner.points == null
-                              ? "—"
-                              : champion.winner.points.toFixed(2)}
-                          </strong>
-                          <span>–</span>
-                          <strong>
-                            {champion.runnerUp.points == null
-                              ? "—"
-                              : champion.runnerUp.points.toFixed(2)}
-                          </strong>
-                        </div>
+                        {champion.winner.points != null && champion.runnerUp.points != null ? (
+                          <div className="champion-score">
+                            <strong>{champion.winner.points.toFixed(2)}</strong>
+                            <span>–</span>
+                            <strong>{champion.runnerUp.points.toFixed(2)}</strong>
+                          </div>
+                        ) : (
+                          <div className="champion-score history-source-line">
+                            <strong>Commissioner entered</strong>
+                          </div>
+                        )}
 
                         <div className="champion-runner">
                           vs. {managerName(almanac, champion.runnerUp.managerId)}
@@ -501,6 +520,11 @@ export default function App() {
                     </p>
                   </div>
                 </section>
+
+                <ManualHistoryAdmin
+                  almanac={almanac}
+                  onChange={refreshNormalized}
+                />
 
                 <section className="panel admin-reconciliation-panel">
                   <div className="section-heading">

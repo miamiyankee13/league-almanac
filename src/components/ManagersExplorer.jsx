@@ -39,6 +39,15 @@ export default function ManagersExplorer({ almanac }) {
           </div>
         )}
 
+        {data.hasManualHistory && (
+          <div className="notice compact-notice manager-record-notice">
+            <strong>Commissioner-entered seasons can extend career W/L, playoff appearances, finals and titles.</strong>{" "}
+            Podium finishes also add the minimum documented playoff outcomes they prove.
+            Only an exact known Champion vs. Runner-up final is added to rivalry H2H;
+            recorded PF and score/margin data remain limited to scored matchups.
+          </div>
+        )}
+
         <div className="table-wrap managers-table-wrap">
           <table className="managers-table">
             <thead>
@@ -48,8 +57,8 @@ export default function ManagersExplorer({ almanac }) {
                 <th>Seasons</th>
                 <th>H2H Record</th>
                 <th>Win %</th>
-                <th>PF</th>
-                <th>Playoffs</th>
+                <th>{data.hasManualHistory ? "Recorded PF" : "PF"}</th>
+                <th>{data.hasManualHistory ? "Documented Playoffs" : "Playoffs"}</th>
                 <th>Finals</th>
                 <th>Titles</th>
               </tr>
@@ -77,7 +86,11 @@ export default function ManagersExplorer({ almanac }) {
                     {formatManagerRecord(manager.regular)}
                   </td>
                   <td>{formatManagerWinPct(manager.winPct)}</td>
-                  <td>{formatPoints(manager.regular.pointsFor)}</td>
+                  <td>
+                    {manager.pointsGames
+                      ? formatPoints(manager.regular.pointsFor)
+                      : "—"}
+                  </td>
                   <td>{manager.playoffAppearances}</td>
                   <td>{manager.finals}</td>
                   <td>
@@ -105,6 +118,7 @@ export default function ManagersExplorer({ almanac }) {
       {selectedManager && (
         <ManagerProfileModal
           manager={selectedManager}
+          hasManualHistory={data.hasManualHistory}
           onClose={() => setSelectedManagerId(null)}
         />
       )}

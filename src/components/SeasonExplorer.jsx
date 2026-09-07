@@ -123,6 +123,13 @@ function playoffResult(almanac, seasonYear, rosterId) {
   return getPostseasonFinishForRoster(almanac, seasonYear, rosterId);
 }
 
+function manualPostseasonLabel(team) {
+  if (!team) return "—";
+  if (team.manualFinish) return team.manualFinish;
+  if (team.manualPlayoffAppearance) return "Playoff Qualifier";
+  return "—";
+}
+
 function seasonCompetitiveGames(almanac, seasonYear) {
   return getMeaningfulCompetitiveGames(almanac).filter(
     (game) => game.season === seasonYear
@@ -300,15 +307,27 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
       .map((team) => ({
         team,
         official: team.officialRecordSnapshot,
-        h2h: h2hByRoster.get(team.rosterId) || {
-          wins: 0,
-          losses: 0,
-          ties: 0,
-          pointsFor: 0,
-          pointsAgainst: 0,
-        },
+        h2h: team.historicalOnly
+          ? {
+              wins: Number(team.officialRecordSnapshot?.wins || 0),
+              losses: Number(team.officialRecordSnapshot?.losses || 0),
+              ties: Number(team.officialRecordSnapshot?.ties || 0),
+              pointsFor: 0,
+              pointsAgainst: 0,
+            }
+          : h2hByRoster.get(team.rosterId) || {
+              wins: 0,
+              losses: 0,
+              ties: 0,
+              pointsFor: 0,
+              pointsAgainst: 0,
+            },
       }))
       .sort((a, b) => {
+        if (a.team.historicalOnly || b.team.historicalOnly) {
+          return Number(a.team.historicalRank || 999) - Number(b.team.historicalRank || 999);
+        }
+
         const aPct = pct(a.official);
         const bPct = pct(b.official);
         if (bPct !== aPct) return bPct - aPct;
@@ -323,6 +342,7 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
   }, [teams, h2hByRoster]);
 
   const median = Boolean(season?.recordFormat?.leagueMedianGameEnabled);
+  const manual = Boolean(season?.historicalOnly);
 
   const unresolved = almanac.ownershipIssues.filter(
     (issue) =>
@@ -334,9 +354,10 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
   );
 
   const standingsLeader = rows[0] || null;
+  const pointsRows = rows.filter((row) => row.official?.pointsFor != null);
   const pointsLeader =
-    rows.length > 0
-      ? rows.reduce((best, row) =>
+    pointsRows.length > 0
+      ? pointsRows.reduce((best, row) =>
           Number(row.official.pointsFor || 0) >
           Number(best.official.pointsFor || 0)
             ? row
@@ -349,6 +370,9 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
   const blowout = marginRecord(almanac, selectedSeason, "max");
 
   const playoffNodes = getMeaningfulPlayoffNodes(almanac, selectedSeason);
+  const manualKnownPlayoffGame = (almanac.manualPlayoffGames || []).find(
+    (game) => game.season === selectedSeason
+  ) || null;
 
   const maxRound = playoffNodes.length
     ? Math.max(...playoffNodes.map((node) => Number(node.round || 0)))
@@ -379,14 +403,44 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
 
       <div className="season-meta-row">
         <span>{isComplete ? "Complete" : "In progress"}</span>
-        <span>
-          Playoffs {isComplete ? "began" : "begin"} Week {season?.playoffWeekStart || "—"}
-        </span>
-        {!isComplete && (
-          <span>Last scored Week {season?.lastScoredLeg || 0}</span>
+        {manual ? (
+          <>
+            <span>{season?.sourcePlatform || "Historical"}</span>
+            <span className="median-chip">Commissioner entered</span>
+            {season?.playoffFieldSize ? (
+              <span>{season.playoffFieldSize}-team playoff field</span>
+            ) : (
+              <span>Playoff field unknown</span>
+            )}
+            <span>Partial matchup coverage</span>
+          </>
+        ) : (
+          <>
+            <span>
+              Playoffs {isComplete ? "began" : "begin"} Week {season?.playoffWeekStart || "—"}
+            </span>
+            {!isComplete && (
+              <span>Last scored Week {season?.lastScoredLeg || 0}</span>
+            )}
+            {median && <span className="median-chip">League median enabled</span>}
+          </>
         )}
-        {median && <span className="median-chip">League median enabled</span>}
       </div>
+
+      {manual && (
+        <div className="notice compact-notice manual-history-active-note">
+          <strong>Commissioner-entered historical season.</strong>{" "}
+          Standings, regular-season record, team/manager mapping and known podium
+          finishes feed season/career/title history. A configured playoff field credits
+          appearances. Podium finishes also contribute the minimum playoff W/L their
+          finish proves, while only the exact Champion + Runner-up final is used for
+          rivalry H2H. Missing regular-season matchups, additional playoff opponents/rounds,
+          scores, margins and streaks are not reconstructed.
+          {season?.historicalNote && (
+            <span className="history-source-note">Source note: {season.historicalNote}</span>
+          )}
+        </div>
+      )}
 
       {median && (
         <div className="notice compact-notice">
@@ -444,15 +498,25 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
           </strong>
           <small>
             {champion
-              ? `${champion.winner.teamName} • ${formatScore(
-                  champion.winner.points
-                )}-${formatScore(champion.runnerUp.points)}`
-              : "Season still in progress"}
+              ? champion.winner.points == null || champion.runnerUp.points == null
+                ? `${champion.winner.teamName} • ${season?.sourcePlatform || "Historical"} history`
+                : `${champion.winner.teamName} • ${formatScore(
+                    champion.winner.points
+                  )}-${formatScore(champion.runnerUp.points)}`
+              : isComplete
+                ? "No champion entered"
+                : "Season still in progress"}
           </small>
         </div>
 
         <div className="season-highlight">
-          <span>{isComplete ? "Regular-Season Leader" : "Current Leader"}</span>
+          <span>
+            {manual
+              ? "Historical Standings Leader"
+              : isComplete
+                ? "Regular-Season Leader"
+                : "Current Leader"}
+          </span>
           <strong>
             {standingsLeader
               ? ownershipLabel(almanac, standingsLeader.team)
@@ -460,9 +524,11 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
           </strong>
           <small>
             {standingsLeader
-              ? `${standingsLeader.team.teamName} • ${recordText(
-                  standingsLeader.official
-                )}`
+              ? `${standingsLeader.team.teamName} • ${
+                  manual && !standingsLeader.official?.recordKnown
+                    ? "Record unavailable"
+                    : recordText(standingsLeader.official)
+                }`
               : "No standings yet"}
           </small>
         </div>
@@ -470,29 +536,35 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
         <div className="season-highlight">
           <span>Most Points For</span>
           <strong>
-            {pointsLeader ? ownershipLabel(almanac, pointsLeader.team) : "—"}
+            {manual ? "Unavailable" : pointsLeader ? ownershipLabel(almanac, pointsLeader.team) : "—"}
           </strong>
           <small>
-            {pointsLeader
-              ? `${pointsLeader.team.teamName} • ${Number(
-                  pointsLeader.official.pointsFor || 0
-                ).toFixed(2)} PF`
-              : "No scoring yet"}
+            {manual
+              ? "No historical scoring data entered"
+              : pointsLeader
+                ? `${pointsLeader.team.teamName} • ${Number(
+                    pointsLeader.official.pointsFor || 0
+                  ).toFixed(2)} PF`
+                : "No scoring yet"}
           </small>
         </div>
 
         <div className="season-highlight">
           <span>Highest Weekly Score</span>
           <strong>
-            {highScore
-              ? managerName(almanac, highScore.managerId) ||
-                teamNameForRoster(almanac, selectedSeason, highScore.rosterId)
-              : "—"}
+            {manual
+              ? "Unavailable"
+              : highScore
+                ? managerName(almanac, highScore.managerId) ||
+                  teamNameForRoster(almanac, selectedSeason, highScore.rosterId)
+                : "—"}
           </strong>
           <small>
-            {highScore
-              ? `${formatScore(highScore.points)} • Week ${highScore.week}`
-              : "No completed games"}
+            {manual
+              ? "No matchup data"
+              : highScore
+                ? `${formatScore(highScore.points)} • Week ${highScore.week}`
+                : "No completed games"}
           </small>
         </div>
       </div>
@@ -533,7 +605,11 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
           <h3>Regular Season</h3>
         </div>
         <span className="muted">
-          {median ? "Official + H2H records separated" : "Sleeper record snapshot"}
+          {manual
+            ? "Commissioner-entered standings"
+            : median
+              ? "Official + H2H records separated"
+              : "Sleeper record snapshot"}
         </span>
       </div>
 
@@ -554,7 +630,9 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
           <tbody>
             {rows.map(({ team, official, h2h }, index) => (
               <tr key={team.seasonTeamId}>
-                <td className="rank-cell">{index + 1}</td>
+                <td className="rank-cell">
+                  {manual ? team.historicalRank || index + 1 : index + 1}
+                </td>
                 <td>
                   <strong className="team-cell-name">{team.teamName}</strong>
                 </td>
@@ -571,15 +649,25 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
                 >
                   {ownershipLabel(almanac, team)}
                 </td>
-                <td className="record-cell">{recordText(official)}</td>
+                <td className="record-cell">
+                  {manual && !official?.recordKnown ? "—" : recordText(official)}
+                </td>
                 {median && <td className="record-cell">{recordText(h2h)}</td>}
-                <td>{Number(official.pointsFor || 0).toFixed(2)}</td>
+                <td>
+                  {official.pointsFor == null
+                    ? "—"
+                    : Number(official.pointsFor).toFixed(2)}
+                </td>
                 <td>
                   {official.pointsAgainst == null
                     ? "—"
                     : Number(official.pointsAgainst).toFixed(2)}
                 </td>
-                <td>{playoffResult(almanac, selectedSeason, team.rosterId)}</td>
+                <td>
+                  {manual
+                    ? manualPostseasonLabel(team)
+                    : playoffResult(almanac, selectedSeason, team.rosterId)}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -587,8 +675,9 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
       </div>
 
       <p className="standings-footnote">
-        Standings are ordered by record, then points for. Historical playoff
-        seeding may differ where league-specific tiebreakers applied.
+        {manual
+          ? `Historical standings use commissioner-entered rank and regular-season record. ${season?.playoffFieldSize ? `Ranks 1–${season.playoffFieldSize} are credited with a playoff appearance. ` : "Playoff appearances are credited only where a known top-three finish proves participation until a playoff field size is entered. "}Team names remain separate from mapped manager identity.`
+          : "Standings are ordered by record, then points for. Historical playoff seeding may differ where league-specific tiebreakers applied."}
       </p>
 
       <div className="subsection-heading playoff-heading">
@@ -599,7 +688,9 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
         <span className="muted">
           {playoffNodes.length
             ? `${playoffNodes.filter((node) => node.isResolved).length} meaningful playoff games`
-            : "No playoff bracket available"}
+            : manualKnownPlayoffGame
+              ? "1 known championship result"
+              : "No opponent-specific playoff result available"}
         </span>
       </div>
 
@@ -691,16 +782,64 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
             }
           )}
         </div>
+      ) : manualKnownPlayoffGame ? (
+        <div className="playoff-rounds">
+          <div className="playoff-round">
+            <div className="playoff-round-title">Known Championship Result</div>
+            <div className="playoff-game-list">
+              <article className="playoff-game-card championship-game-card">
+                <div className="playoff-game-label">
+                  Championship · Commissioner entered
+                </div>
+
+                <div className="playoff-team-row winner">
+                  <div className="playoff-team-identity">
+                    <span>{manualKnownPlayoffGame.winner.teamName}</span>
+                    {manualKnownPlayoffGame.winner.managerId && (
+                      <small>
+                        {managerName(
+                          almanac,
+                          manualKnownPlayoffGame.winner.managerId
+                        )}
+                      </small>
+                    )}
+                  </div>
+                  <strong>WIN</strong>
+                </div>
+
+                <div className="playoff-team-row">
+                  <div className="playoff-team-identity">
+                    <span>{manualKnownPlayoffGame.loser.teamName}</span>
+                    {manualKnownPlayoffGame.loser.managerId && (
+                      <small>
+                        {managerName(
+                          almanac,
+                          manualKnownPlayoffGame.loser.managerId
+                        )}
+                      </small>
+                    )}
+                  </div>
+                  <strong>LOSS</strong>
+                </div>
+
+                <div className="playoff-pending">Final score unavailable</div>
+              </article>
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="empty-state">
-          No meaningful playoff bracket returned for this season.
+          {manual
+            ? "No opponent-specific playoff result is known for this commissioner-entered season. Known playoff appearances and top-three finishes are still preserved above."
+            : "No meaningful playoff bracket returned for this season."}
         </div>
       )}
 
-      {playoffNodes.length > 0 && (
+      {(playoffNodes.length > 0 || manualKnownPlayoffGame) && (
         <p className="standings-footnote playoff-footnote">
-          Playoff history includes championship-path games plus the official
-          3rd-place game. Lower placement games are excluded.
+          {manualKnownPlayoffGame && !playoffNodes.length
+            ? "The champion and runner-up prove one exact championship meeting and its winner. Manager playoff totals may also include minimum opponent-unknown outcomes proven by the podium finish, but additional opponents and rounds are not invented."
+            : "Playoff history includes championship-path games plus the official 3rd-place game. Lower placement games are excluded."}
         </p>
       )}
 
@@ -709,7 +848,7 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
           <p className="eyebrow">All-time seasons</p>
           <h3>Season Leaderboard</h3>
         </div>
-        <span className="muted">Completed seasons • sorted by H2H win %</span>
+        <span className="muted">Completed seasons • sorted by regular-season win %</span>
       </div>
 
       <div className="table-wrap">
@@ -734,13 +873,16 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
                 <td className="rank-cell">{index + 1}</td>
                 <td>
                   <strong>{entry.season}</strong>
+                  {entry.historicalOnly && (
+                    <span className="manual-source-chip manual-source-chip-inline">Manual</span>
+                  )}
                 </td>
                 <td>{entry.teamName}</td>
                 <td>{entry.managerLineage}</td>
                 <td className="record-cell">{formatRecord(entry.h2h)}</td>
                 <td>{formatPct(entry.winPct)}</td>
-                <td>{formatScore(entry.h2h.pointsFor)}</td>
-                <td>{formatScore(entry.h2h.pointsAgainst)}</td>
+                <td>{entry.pointsKnown ? formatScore(entry.h2h.pointsFor) : "—"}</td>
+                <td>{entry.pointsKnown ? formatScore(entry.h2h.pointsAgainst) : "—"}</td>
                 <td
                   className={
                     entry.pointDiff > 0
@@ -750,7 +892,7 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
                         : ""
                   }
                 >
-                  {signedPoints(entry.pointDiff)}
+                  {entry.pointsKnown ? signedPoints(entry.pointDiff) : "—"}
                 </td>
                 <td>
                   <span
@@ -772,8 +914,9 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
       </div>
 
       <p className="standings-footnote">
-        All-time season rankings use completed seasons and actual opponent H2H
-        records so league-median eras remain comparable.
+        All-time season rankings use completed regular-season records. Commissioner-
+        entered aggregate W/L can extend the archive without creating fictional games;
+        PF/PA and matchup-derived fields remain blank where historical scoring data is unavailable.
       </p>
     </section>
   );

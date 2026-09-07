@@ -4,6 +4,7 @@ import "./index.css";
 import App from "./App";
 import "./terminal.css";
 import "./kpiConsistency.css";
+import "./manualHistory.css";
 
 let storedTheme = null;
 try {

@@ -58,3 +58,10 @@ export function removeOwnershipOverride(leagueSeriesId, ownershipIssueId) {
 
   return next;
 }
+export function saveManualHistory(leagueSeriesId, manualHistory) {
+  const state = loadCommissionerState(leagueSeriesId);
+  state.manualHistory = manualHistory || {};
+  saveCommissionerState(leagueSeriesId, state);
+  return state.manualHistory;
+}
+

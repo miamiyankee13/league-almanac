@@ -8,6 +8,7 @@ function asNumber(value) {
 function blankSeries() {
   return {
     games: 0,
+    scoredGames: 0,
     winsA: 0,
     winsB: 0,
     ties: 0,
@@ -18,12 +19,25 @@ function blankSeries() {
 
 function addToSeries(series, pointsA, pointsB) {
   series.games += 1;
+  series.scoredGames += 1;
   series.pointsA += pointsA;
   series.pointsB += pointsB;
 
   if (pointsA > pointsB) series.winsA += 1;
   else if (pointsB > pointsA) series.winsB += 1;
   else series.ties += 1;
+}
+
+function addKnownResultToSeries(series, pair, meeting) {
+  series.games += 1;
+
+  if (!meeting.winnerManagerId) {
+    series.ties += 1;
+  } else if (meeting.winnerManagerId === pair.managerAId) {
+    series.winsA += 1;
+  } else if (meeting.winnerManagerId === pair.managerBId) {
+    series.winsB += 1;
+  }
 }
 
 function pairKey(managerIdA, managerIdB) {
@@ -192,6 +206,9 @@ function meetingFromGame(almanac, pair, game, stage) {
     week: Number(game.week),
     stage,
     isPlayoff: stage !== "Regular Season",
+    scoreKnown: true,
+    sourceType: "sleeper",
+    completeChronology: true,
 
     managerAId: pair.managerAId,
     managerBId: pair.managerBId,
@@ -221,18 +238,66 @@ function meetingFromGame(almanac, pair, game, stage) {
   };
 }
 
+function meetingFromManualPlayoffGame(pair, game) {
+  if (!game?.winner || !game?.loser) return null;
+
+  const winnerManagerId = game.winner.managerId;
+  const loserManagerId = game.loser.managerId;
+  if (!winnerManagerId || !loserManagerId) return null;
+
+  const winnerIsA = winnerManagerId === pair.managerAId;
+  const loserIsA = loserManagerId === pair.managerAId;
+
+  if (winnerIsA === loserIsA) return null;
+
+  return {
+    meetingId: game.manualPlayoffGameId || game.gameId,
+    gameId: game.gameId || game.manualPlayoffGameId,
+    season: game.season,
+    week: null,
+    stage: game.stage || "Championship",
+    isPlayoff: true,
+    scoreKnown: false,
+    sourceType: "manual",
+    completeChronology: false,
+    sourcePlatform: game.sourcePlatform || "Historical",
+
+    managerAId: pair.managerAId,
+    managerBId: pair.managerBId,
+    managerAName: pair.managerAName,
+    managerBName: pair.managerBName,
+
+    pointsA: null,
+    pointsB: null,
+    margin: null,
+    combinedPoints: null,
+
+    winnerManagerId,
+    winnerName: winnerIsA ? pair.managerAName : pair.managerBName,
+    loserManagerId,
+
+    teamAName: winnerIsA ? game.winner.teamName : game.loser.teamName,
+    teamBName: winnerIsA ? game.loser.teamName : game.winner.teamName,
+  };
+}
+
 function addMeeting(pair, meeting) {
   if (!meeting) return;
 
   pair.meetings.push(meeting);
 
-  addToSeries(pair.all, meeting.pointsA, meeting.pointsB);
+  const add = (series) => {
+    if (meeting.scoreKnown === false) {
+      addKnownResultToSeries(series, pair, meeting);
+    } else {
+      addToSeries(series, meeting.pointsA, meeting.pointsB);
+    }
+  };
 
-  if (meeting.isPlayoff) {
-    addToSeries(pair.playoffs, meeting.pointsA, meeting.pointsB);
-  } else {
-    addToSeries(pair.regular, meeting.pointsA, meeting.pointsB);
-  }
+  add(pair.all);
+
+  if (meeting.isPlayoff) add(pair.playoffs);
+  else add(pair.regular);
 }
 
 function chronological(a, b) {
@@ -249,7 +314,10 @@ function chronological(a, b) {
 }
 
 function buildCurrentStreak(pair) {
-  const meetings = [...pair.meetings].sort(chronological);
+  const meetings = pair.meetings
+    .filter((meeting) => meeting.completeChronology !== false)
+    .slice()
+    .sort(chronological);
   if (!meetings.length) return null;
 
   const latest = meetings.at(-1);
@@ -293,7 +361,11 @@ function seriesForSeason(pair, meetings, playoff) {
 
   for (const meeting of meetings) {
     if (Boolean(meeting.isPlayoff) !== Boolean(playoff)) continue;
-    addToSeries(series, meeting.pointsA, meeting.pointsB);
+    if (meeting.scoreKnown === false) {
+      addKnownResultToSeries(series, pair, meeting);
+    } else {
+      addToSeries(series, meeting.pointsA, meeting.pointsB);
+    }
   }
 
   return series;
@@ -305,26 +377,45 @@ function finalizePair(pair) {
   pair.firstMeeting = pair.meetings[0] || null;
   pair.latestMeeting = pair.meetings.at(-1) || null;
 
-  if (pair.meetings.length) {
-    pair.closestGame = [...pair.meetings].sort(
+  const scoredMeetings = pair.meetings.filter(
+    (meeting) => meeting.scoreKnown !== false
+  );
+
+  pair.scoredMeetingCount = scoredMeetings.length;
+  pair.unknownScoreMeetingCount = pair.meetings.length - scoredMeetings.length;
+  pair.manualMeetingCount = pair.meetings.filter(
+    (meeting) => meeting.sourceType === "manual"
+  ).length;
+
+  if (scoredMeetings.length) {
+    pair.closestGame = [...scoredMeetings].sort(
       (a, b) => a.margin - b.margin || b.combinedPoints - a.combinedPoints
     )[0];
 
-    pair.biggestBlowout = [...pair.meetings].sort(
+    pair.biggestBlowout = [...scoredMeetings].sort(
       (a, b) => b.margin - a.margin || b.combinedPoints - a.combinedPoints
     )[0];
 
-    pair.highestCombined = [...pair.meetings].sort(
+    pair.highestCombined = [...scoredMeetings].sort(
       (a, b) =>
         b.combinedPoints - a.combinedPoints || b.margin - a.margin
     )[0];
 
     pair.averageMargin =
-      pair.meetings.reduce((sum, meeting) => sum + meeting.margin, 0) /
-      pair.meetings.length;
+      scoredMeetings.reduce((sum, meeting) => sum + meeting.margin, 0) /
+      scoredMeetings.length;
+  } else {
+    pair.closestGame = null;
+    pair.biggestBlowout = null;
+    pair.highestCombined = null;
+    pair.averageMargin = null;
   }
 
   pair.currentStreak = buildCurrentStreak(pair);
+  pair.streakThroughMeeting = pair.meetings
+    .filter((meeting) => meeting.completeChronology !== false)
+    .sort(chronological)
+    .at(-1) || null;
 
   const seasons = [...new Set(pair.meetings.map((meeting) => meeting.season))]
     .sort((a, b) => Number(b) - Number(a));
@@ -339,8 +430,15 @@ function finalizePair(pair) {
       meetings: meetings.length,
       regular: seriesForSeason(pair, meetings, false),
       playoffs: seriesForSeason(pair, meetings, true),
-      pointsA: meetings.reduce((sum, meeting) => sum + meeting.pointsA, 0),
-      pointsB: meetings.reduce((sum, meeting) => sum + meeting.pointsB, 0),
+      scoredMeetings: meetings.filter(
+        (meeting) => meeting.scoreKnown !== false
+      ).length,
+      pointsA: meetings
+        .filter((meeting) => meeting.scoreKnown !== false)
+        .reduce((sum, meeting) => sum + meeting.pointsA, 0),
+      pointsB: meetings
+        .filter((meeting) => meeting.scoreKnown !== false)
+        .reduce((sum, meeting) => sum + meeting.pointsB, 0),
     };
   });
 
@@ -356,8 +454,11 @@ function tightnessScore(pair) {
 
   const winBalance =
     seriesDifferential(pair.all) / Math.max(1, pair.all.games);
+  const marginTieBreaker = Number.isFinite(pair.averageMargin)
+    ? pair.averageMargin
+    : 999;
 
-  return winBalance * 1000 + pair.averageMargin;
+  return winBalance * 1000 + marginTieBreaker;
 }
 
 function lopsidednessScore(pair) {
@@ -428,6 +529,26 @@ export function buildRivalryMetrics(almanac) {
     addMeeting(pair, meetingFromGame(almanac, pair, game, stage));
   }
 
+  for (const game of almanac.manualPlayoffGames || []) {
+    const managerIdA = game?.winner?.managerId;
+    const managerIdB = game?.loser?.managerId;
+
+    if (
+      !managerIdA ||
+      !managerIdB ||
+      !eligibleManagerIds.has(managerIdA) ||
+      !eligibleManagerIds.has(managerIdB)
+    ) {
+      unattributedPlayoffGames += 1;
+      continue;
+    }
+
+    if (managerIdA === managerIdB) continue;
+
+    const pair = ensurePair(pairs, almanac, managerIdA, managerIdB);
+    addMeeting(pair, meetingFromManualPlayoffGame(pair, game));
+  }
+
   const rivalries = [...pairs.values()]
     .map(finalizePair)
     .sort((a, b) => {
@@ -435,9 +556,13 @@ export function buildRivalryMetrics(almanac) {
       if (b.playoffs.games !== a.playoffs.games) {
         return b.playoffs.games - a.playoffs.games;
       }
-      if (a.averageMargin !== b.averageMargin) {
-        return a.averageMargin - b.averageMargin;
-      }
+      const aMargin = Number.isFinite(a.averageMargin)
+        ? a.averageMargin
+        : Number.POSITIVE_INFINITY;
+      const bMargin = Number.isFinite(b.averageMargin)
+        ? b.averageMargin
+        : Number.POSITIVE_INFINITY;
+      if (aMargin !== bMargin) return aMargin - bMargin;
       return `${a.managerAName}${a.managerBName}`.localeCompare(
         `${b.managerAName}${b.managerBName}`
       );
@@ -503,6 +628,13 @@ export function buildRivalryMetrics(almanac) {
     unattributedPlayoffGames,
     hasLeagueMedianSeasons: almanac.seasons.some(
       (season) => season.recordFormat?.leagueMedianGameEnabled
+    ),
+    hasManualHistory: Boolean(almanac.manualHistory?.seasons?.length),
+    hasKnownManualPlayoffMeetings: Boolean(
+      (almanac.manualPlayoffGames || []).length
+    ),
+    hasPartialHistoricalCoverage: Boolean(
+      almanac.manualHistory?.seasons?.length
     ),
   };
 }
