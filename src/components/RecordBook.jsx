@@ -548,7 +548,8 @@ function ManagerRecords({ data }) {
         <div className="notice compact-notice record-book-notice">
           <strong>Manual history extends any result the entered facts prove.</strong>{" "}
           Regular-season W/L, titles/finals and configured playoff fields can extend
-          career history. Podium finishes add minimum documented playoff outcomes;
+          career history. Non-podium playoff qualifiers receive at least one documented
+          loss, while podium finishes use the stronger minimum playoff outcomes they prove;
           only exact known championship opponents extend rivalry H2H. Score-based
           records remain limited to scored matchups.
         </div>
@@ -612,8 +613,9 @@ function ManagerRecords({ data }) {
         Manager records follow reconciled tenures. A replacement owner inherits
         the franchise, not the previous manager&apos;s career statistics. Commissioner-
         entered aggregate W/L and playoff field size can extend career history. A known
-        Champion vs. Runner-up adds the exact final to manager and rivalry history; podium
-        finishes also add only the minimum additional playoff outcomes their finish proves.
+        Champion vs. Runner-up adds the exact final to manager and rivalry history. Every
+        other known playoff qualifier receives at least one documented playoff loss, while
+        podium finishes use the stronger minimum additional outcomes their finish proves.
         Unknown opponents and additional rounds are not inferred.
       </p>
     </>

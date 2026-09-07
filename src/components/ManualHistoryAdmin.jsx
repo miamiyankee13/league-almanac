@@ -326,9 +326,10 @@ export default function ManualHistoryAdmin({ almanac, onChange }) {
       <div className="notice compact-notice manual-history-scope-note">
         <strong>Manual history extends only the records the source data can prove.</strong>{" "}
         Standings/records, seasons managed, top-three finishes and playoff field size can
-        extend career history. Podium finishes add the minimum documented playoff W/L
-        they prove; only the known Champion vs. Runner-up final creates an opponent-specific
-        playoff/rivalry meeting.
+        extend career history. Every other known playoff qualifier receives at least one
+        documented playoff loss, while podium finishes use the stronger minimum playoff W/L
+        their finish proves. Only the known Champion vs. Runner-up final creates an
+        opponent-specific playoff/rivalry meeting.
       </div>
 
       <div className="manual-history-coverage-grid">
@@ -632,7 +633,7 @@ function HistoricalSeasonEditor({
       </div>
 
       <p className="standings-footnote manual-history-footnote">
-        Rank + Playoff Teams can credit playoff appearances. Podium finishes also credit the minimum playoff W/L they prove: with a known semifinal round, Champion and Runner-up each get one required pre-final win; 3rd Place gets one semifinal loss plus one 3rd-place win. Only Champion + Runner-up supplies an exact opponent-specific championship meeting for rivalry history. No missing opponent, score, margin or additional round is invented.
+        Rank + Playoff Teams can credit playoff appearances. Every non-podium qualifier inside that field also gets at least one documented playoff loss because elimination is certain; their finish is shown as Playoffs because the exact round is unknown. Podium finishes use the stronger minimum playoff W/L they prove: with a known semifinal round, Champion and Runner-up each get one required pre-final win; 3rd Place gets one semifinal loss plus one 3rd-place win. Only Champion + Runner-up supplies an exact opponent-specific championship meeting for rivalry history. No missing opponent, score, margin or additional round is invented.
       </p>
     </article>
   );

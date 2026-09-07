@@ -438,9 +438,10 @@ export default function App() {
                   <section className="notice manual-history-active-note">
                     <strong>Commissioner-entered history is active.</strong>{" "}
                     Historical standings, regular-season records, playoff field size and
-                    known podium finishes can extend career/title history. Podium finishes
-                    also add the minimum documented playoff W/L they prove; only the exact
-                    Champion vs. Runner-up final creates a rivalry meeting. The Games KPI,
+                    known podium finishes can extend career/title history. Every other known
+                    playoff qualifier receives at least one documented playoff loss, while
+                    podium finishes use the stronger minimum playoff W/L they prove; only the
+                    exact Champion vs. Runner-up final creates a rivalry meeting. The Games KPI,
                     scoring/margin records, missing pre-Sleeper regular-season H2H and
                     additional unknown playoff rounds are never reconstructed.
                   </section>

@@ -126,7 +126,7 @@ function playoffResult(almanac, seasonYear, rosterId) {
 function manualPostseasonLabel(team) {
   if (!team) return "—";
   if (team.manualFinish) return team.manualFinish;
-  if (team.manualPlayoffAppearance) return "Playoff Qualifier";
+  if (team.manualPlayoffAppearance) return "Playoffs";
   return "—";
 }
 
@@ -432,10 +432,11 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
           <strong>Commissioner-entered historical season.</strong>{" "}
           Standings, regular-season record, team/manager mapping and known podium
           finishes feed season/career/title history. A configured playoff field credits
-          appearances. Podium finishes also contribute the minimum playoff W/L their
-          finish proves, while only the exact Champion + Runner-up final is used for
-          rivalry H2H. Missing regular-season matchups, additional playoff opponents/rounds,
-          scores, margins and streaks are not reconstructed.
+          appearances. Every other known playoff qualifier receives at least one documented
+          playoff loss because elimination is certain; podium finishes use the stronger
+          minimum path their finish proves. Only the exact Champion + Runner-up final is
+          used for rivalry H2H. Missing regular-season matchups, additional playoff
+          opponents/rounds, scores, margins and streaks are not reconstructed.
           {season?.historicalNote && (
             <span className="history-source-note">Source note: {season.historicalNote}</span>
           )}
@@ -676,7 +677,7 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
 
       <p className="standings-footnote">
         {manual
-          ? `Historical standings use commissioner-entered rank and regular-season record. ${season?.playoffFieldSize ? `Ranks 1–${season.playoffFieldSize} are credited with a playoff appearance. ` : "Playoff appearances are credited only where a known top-three finish proves participation until a playoff field size is entered. "}Team names remain separate from mapped manager identity.`
+          ? `Historical standings use commissioner-entered rank and regular-season record. ${season?.playoffFieldSize ? `Ranks 1–${season.playoffFieldSize} are credited with a playoff appearance and, if they did not place top three, at least one documented playoff loss. ` : "Playoff appearances are credited only where a known top-three finish proves participation until a playoff field size is entered. "}Manual qualifiers without a known podium finish are labeled Playoffs because the exact elimination round is not known. Team names remain separate from mapped manager identity.`
           : "Standings are ordered by record, then points for. Historical playoff seeding may differ where league-specific tiebreakers applied."}
       </p>
 
@@ -830,7 +831,7 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
       ) : (
         <div className="empty-state">
           {manual
-            ? "No opponent-specific playoff result is known for this commissioner-entered season. Known playoff appearances and top-three finishes are still preserved above."
+            ? "No opponent-specific playoff result is known for this commissioner-entered season. Known playoff appearances and minimum documented playoff outcomes are still preserved above."
             : "No meaningful playoff bracket returned for this season."}
         </div>
       )}
@@ -838,7 +839,7 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
       {(playoffNodes.length > 0 || manualKnownPlayoffGame) && (
         <p className="standings-footnote playoff-footnote">
           {manualKnownPlayoffGame && !playoffNodes.length
-            ? "The champion and runner-up prove one exact championship meeting and its winner. Manager playoff totals may also include minimum opponent-unknown outcomes proven by the podium finish, but additional opponents and rounds are not invented."
+            ? "The champion and runner-up prove one exact championship meeting and its winner. Manager playoff totals may also include minimum opponent-unknown outcomes proven by playoff qualification and podium finish, but additional opponents and rounds are not invented."
             : "Playoff history includes championship-path games plus the official 3rd-place game. Lower placement games are excluded."}
         </p>
       )}

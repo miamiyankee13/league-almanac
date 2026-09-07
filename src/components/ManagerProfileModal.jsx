@@ -209,12 +209,15 @@ export default function ManagerProfileModal({ manager, hasManualHistory, onClose
             <>
               Commissioner-entered standings can extend career regular-season W/L
               and seasons managed. Entered playoff field size can extend playoff
-              appearances. Podium finishes add the minimum playoff W/L they prove:
-              when a semifinal round is known, Champion and Runner-up each receive one
-              required pre-final win; 3rd Place receives one semifinal loss plus one
-              3rd-place win. Only the exact Champion vs. Runner-up final becomes a
-              rivalry meeting. Additional opponents/rounds, PF, margins and streaks are
-              not invented. League-median bonus results remain excluded.
+              appearances. Every other known playoff qualifier receives at least one
+              documented playoff loss because elimination is certain, and their finish
+              is shown simply as Playoffs because the exact round is unknown. Podium
+              finishes use the stronger minimum path they prove: when a semifinal round
+              is known, Champion and Runner-up each receive one required pre-final win;
+              3rd Place receives one semifinal loss plus one 3rd-place win. Only the
+              exact Champion vs. Runner-up final becomes a rivalry meeting. Additional
+              opponents/rounds, PF, margins and streaks are not invented. League-median
+              bonus results remain excluded.
             </>
           ) : (
             <>

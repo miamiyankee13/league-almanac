@@ -403,7 +403,7 @@ function buildSeasonRecords(almanac) {
       sourcePlatform: team.sourcePlatform || null,
       pointDiff: 0,
       finish: team.historicalOnly
-        ? team.manualFinish || "—"
+        ? team.manualFinish || (team.manualPlayoffAppearance ? "Playoffs" : "—")
         : getPostseasonFinishForRoster(
             almanac,
             team.season,

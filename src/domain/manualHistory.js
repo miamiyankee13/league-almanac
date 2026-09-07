@@ -159,6 +159,13 @@ function opponentUnknownPlayoffRecord(team, hasSemifinalRound) {
     return { wins: 1, losses: 1, ties: 0, games: 2 };
   }
 
+  // Any other team inside a known completed playoff field had to be
+  // eliminated somewhere in the championship bracket. We may not know the
+  // round or opponent, but at least one playoff loss is certain.
+  if (!finish && team.manualPlayoffAppearance) {
+    return { wins: 0, losses: 1, ties: 0, games: 1 };
+  }
+
   return null;
 }
 

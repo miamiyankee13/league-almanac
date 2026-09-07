@@ -487,6 +487,17 @@ export function buildManagerMetrics(almanac) {
         }
       }
 
+      // Manual history can prove a playoff berth without proving the exact
+      // elimination round. Keep the finish broad rather than inventing a
+      // "First Round" label.
+      if (
+        seasonSummary.historicalOnly &&
+        seasonSummary.playoffAppearance &&
+        seasonSummary.finish === "—"
+      ) {
+        seasonSummary.finish = "Playoffs";
+      }
+
       const season = seasonByYear.get(seasonSummary.season);
       seasonSummary.tenureLabel = seasonSummary.historicalOnly
         ? "Historical season"
