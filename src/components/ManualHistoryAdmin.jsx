@@ -65,7 +65,7 @@ function historyForLeague(leagueSeriesId) {
   );
 }
 
-export default function ManualHistoryAdmin({ almanac, onChange }) {
+export default function ManualHistoryAdmin({ almanac, onChange, reloadToken = 0 }) {
   const leagueSeriesId = almanac.leagueSeries.leagueSeriesId;
   const [history, setHistory] = useState(() => historyForLeague(leagueSeriesId));
   const [newManagerName, setNewManagerName] = useState("");
@@ -84,7 +84,7 @@ export default function ManualHistoryAdmin({ almanac, onChange }) {
     setHistory(historyForLeague(leagueSeriesId));
     setDirtySeasons(new Set());
     setMessage("");
-  }, [leagueSeriesId]);
+  }, [leagueSeriesId, reloadToken]);
 
   const options = useMemo(
     () => managerOptions(almanac, history),

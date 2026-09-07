@@ -14,6 +14,7 @@ import ManagersExplorer from "./components/ManagersExplorer";
 import RivalriesExplorer from "./components/RivalriesExplorer";
 import RecordBook from "./components/RecordBook";
 import ManualHistoryAdmin from "./components/ManualHistoryAdmin";
+import CommissionerBackupAdmin from "./components/CommissionerBackupAdmin";
 import { getMeaningfulCompetitiveGames } from "./domain/gameUtils";
 
 const LEAGUE_KEY = "league-almanac.currentLeagueId";
@@ -101,6 +102,7 @@ export default function App() {
   const [reviewIssueId, setReviewIssueId] = useState(null);
   const [activeSection, setActiveSection] = useState(initialNavSection);
   const [theme, setTheme] = useState(initialTheme);
+  const [commissionerImportRevision, setCommissionerImportRevision] = useState(0);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -165,6 +167,11 @@ export default function App() {
     const normalized = normalizeWithStoredOverrides(rawHistory);
     setAlmanac(normalized);
     window.__LEAGUE_ALMANAC__ = normalized;
+  }
+
+  function refreshAfterCommissionerImport() {
+    refreshNormalized();
+    setCommissionerImportRevision((current) => current + 1);
   }
 
   const reviewIssue = useMemo(
@@ -361,7 +368,7 @@ export default function App() {
                   )
                 }
               >
-                EXPORT JSON
+                EXPORT ALMANAC JSON
               </button>
             </>
           )}
@@ -522,9 +529,15 @@ export default function App() {
                   </div>
                 </section>
 
+                <CommissionerBackupAdmin
+                  almanac={almanac}
+                  onImport={refreshAfterCommissionerImport}
+                />
+
                 <ManualHistoryAdmin
                   almanac={almanac}
                   onChange={refreshNormalized}
+                  reloadToken={commissionerImportRevision}
                 />
 
                 <section className="panel admin-reconciliation-panel">
