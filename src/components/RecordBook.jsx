@@ -404,14 +404,6 @@ function SeasonRecords({ data }) {
         </div>
       )}
 
-      {data.hasManualHistory && (
-        <div className="notice compact-notice record-book-notice">
-          <strong>Commissioner-entered season W/L can qualify for record-based cards.</strong>{" "}
-          Points-for, point-differential and weekly score records remain matchup-data
-          only because no historical scoring data was entered.
-        </div>
-      )}
-
       <div className="record-card-grid record-card-grid-primary">
         {seasonCard({
           label: "Best H2H Record",
@@ -541,17 +533,6 @@ function ManagerRecords({ data }) {
         <div className="notice compact-notice record-book-notice">
           <strong>Career W/L is H2H only.</strong> League-median bonus results
           never enter manager career records. Playoff W/L is tracked separately.
-        </div>
-      )}
-
-      {data.hasManualHistory && (
-        <div className="notice compact-notice record-book-notice">
-          <strong>Manual history extends any result the entered facts prove.</strong>{" "}
-          Regular-season W/L, titles/finals and configured playoff fields can extend
-          career history. Non-podium playoff qualifiers receive at least one documented
-          loss, while podium finishes use the stronger minimum playoff outcomes they prove;
-          only exact known championship opponents extend rivalry H2H. Score-based
-          records remain limited to scored matchups.
         </div>
       )}
 
@@ -720,6 +701,9 @@ export default function RecordBook({ almanac }) {
   const data = useMemo(() => buildRecordBook(almanac), [almanac]);
   const rivalryData = useMemo(() => buildRivalryMetrics(almanac), [almanac]);
   const [tab, setTab] = useState("games");
+  const hasManualHistory = Boolean(
+    data.seasons?.hasManualHistory || data.careers?.hasManualHistory
+  );
 
   return (
     <section className="panel record-book">
@@ -759,6 +743,12 @@ export default function RecordBook({ almanac }) {
           RIVALRY RECORDS
         </button>
       </div>
+
+      {hasManualHistory && (
+        <div className="notice compact-notice record-book-notice">
+          Historical records include commissioner-entered results where the underlying stat is known.
+        </div>
+      )}
 
       <div className="record-book-body">
         {tab === "games" && <GameRecords data={data.games} />}

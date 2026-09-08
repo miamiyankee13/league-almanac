@@ -235,16 +235,6 @@ export default function RivalriesExplorer({ almanac }) {
           </label>
         </div>
 
-        {data.hasPartialHistoricalCoverage && (
-          <div className="notice compact-notice manager-record-notice">
-            <strong>Pre-Sleeper rivalry coverage is partial.</strong>{" "}
-            Commissioner-entered Champion vs. Runner-up results count as known
-            playoff and overall meetings. Unavailable historical regular-season
-            matchups are not reconstructed; margin, scoring and streak metrics use
-            only scored matchups with complete chronology.
-          </div>
-        )}
-
         {(data.unattributedRegularGames > 0 ||
           data.unattributedPlayoffGames > 0) && (
           <div className="rivalry-data-note">
@@ -314,10 +304,9 @@ export default function RivalriesExplorer({ almanac }) {
         </div>
 
         <p className="standings-footnote rivalry-footnote compact">
-          Current Owners shows active manager pairings. League-median bonus games
-          and lower placement playoff games are excluded. Commissioner-entered known
-          championship results are included without inventing scores or missing
-          pre-Sleeper regular-season meetings.
+          Current Owners shows active manager pairings. League-median bonus and
+          lower-placement playoff games are excluded. Known historical championship
+          results are included; unavailable pre-Sleeper meetings are not inferred.
         </p>
       </section>
 

@@ -41,11 +41,7 @@ export default function ManagersExplorer({ almanac }) {
 
         {data.hasManualHistory && (
           <div className="notice compact-notice manager-record-notice">
-            <strong>Commissioner-entered seasons can extend career W/L, playoff appearances, finals and titles.</strong>{" "}
-            Every other known playoff qualifier receives at least one documented loss,
-            while podium finishes use the stronger minimum playoff outcomes they prove.
-            Only an exact known Champion vs. Runner-up final is added to rivalry H2H;
-            recorded PF and score/margin data remain limited to scored matchups.
+            Career totals include commissioner-entered historical seasons.
           </div>
         )}
 

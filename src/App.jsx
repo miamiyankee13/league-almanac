@@ -220,6 +220,12 @@ export default function App() {
   const manualSeasons =
     almanac?.seasons.filter((season) => season.historicalOnly) || [];
 
+  const manualHistoryRange = manualSeasons.length
+    ? `${Math.min(...manualSeasons.map((season) => Number(season.season)))}–${Math.max(
+        ...manualSeasons.map((season) => Number(season.season))
+      )}`
+    : null;
+
   const unresolvedOwnershipCount =
     almanac?.ownershipIssues.filter((issue) => issue.status !== "resolved")
       .length || 0;
@@ -442,15 +448,9 @@ export default function App() {
                 )}
 
                 {manualSeasons.length > 0 && (
-                  <section className="notice manual-history-active-note">
-                    <strong>Commissioner-entered history is active.</strong>{" "}
-                    Historical standings, regular-season records, playoff field size and
-                    known podium finishes can extend career/title history. Every other known
-                    playoff qualifier receives at least one documented playoff loss, while
-                    podium finishes use the stronger minimum playoff W/L they prove; only the
-                    exact Champion vs. Runner-up final creates a rivalry meeting. The Games KPI,
-                    scoring/margin records, missing pre-Sleeper regular-season H2H and
-                    additional unknown playoff rounds are never reconstructed.
+                  <section className="notice compact-notice manual-history-active-note">
+                    <strong>Commissioner-entered history included.</strong>{" "}
+                    {manualHistoryRange}
                   </section>
                 )}
 

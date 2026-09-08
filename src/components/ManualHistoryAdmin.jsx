@@ -324,12 +324,8 @@ export default function ManualHistoryAdmin({ almanac, onChange, reloadToken = 0 
       </div>
 
       <div className="notice compact-notice manual-history-scope-note">
-        <strong>Manual history extends only the records the source data can prove.</strong>{" "}
-        Standings/records, seasons managed, top-three finishes and playoff field size can
-        extend career history. Every other known playoff qualifier receives at least one
-        documented playoff loss, while podium finishes use the stronger minimum playoff W/L
-        their finish proves. Only the known Champion vs. Runner-up final creates an
-        opponent-specific playoff/rivalry meeting.
+        <strong>Manual history extends career records, playoff history and championships where the entered data supports them.</strong>{" "}
+        Unknown matchups, scores and opponents are never inferred.
       </div>
 
       <div className="manual-history-coverage-grid">
@@ -460,8 +456,7 @@ export default function ManualHistoryAdmin({ almanac, onChange, reloadToken = 0 
       )}
 
       <p className="standings-footnote manual-history-storage-note">
-        Manual history is stored in this league&apos;s local commissioner state and is
-        included in the Almanac JSON export. Keep an export as a backup before
+        Manual history is stored locally. Use Commissioner Backup below before
         clearing browser/site storage or moving to another device.
       </p>
     </section>

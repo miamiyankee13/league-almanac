@@ -427,19 +427,9 @@ export default function SeasonExplorer({ almanac, onReviewOwnership }) {
         )}
       </div>
 
-      {manual && (
-        <div className="notice compact-notice manual-history-active-note">
-          <strong>Commissioner-entered historical season.</strong>{" "}
-          Standings, regular-season record, team/manager mapping and known podium
-          finishes feed season/career/title history. A configured playoff field credits
-          appearances. Every other known playoff qualifier receives at least one documented
-          playoff loss because elimination is certain; podium finishes use the stronger
-          minimum path their finish proves. Only the exact Champion + Runner-up final is
-          used for rivalry H2H. Missing regular-season matchups, additional playoff
-          opponents/rounds, scores, margins and streaks are not reconstructed.
-          {season?.historicalNote && (
-            <span className="history-source-note">Source note: {season.historicalNote}</span>
-          )}
+      {manual && season?.historicalNote && (
+        <div className="history-source-note">
+          Source note: {season.historicalNote}
         </div>
       )}
 
