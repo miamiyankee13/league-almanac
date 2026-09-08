@@ -205,7 +205,7 @@ export default function App() {
     ? [
         ["Seasons", almanac.seasons.length],
         ["Managers", careerManagerCount],
-        ["Games", meaningfulCompetitiveGameCount],
+        ["Scored Games", meaningfulCompetitiveGameCount],
       ]
     : [];
 
