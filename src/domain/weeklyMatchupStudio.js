@@ -192,6 +192,49 @@ function lastMeetingLabel(rivalry) {
   )}-${Number(loserPoints).toFixed(1)}`;
 }
 
+function notablePlayoffStageLabel(stage) {
+  if (stage === "Championship") return "championship";
+  if (stage === "Third Place") return "third-place game";
+  if (stage === "Semifinals") return "semifinal";
+  return null;
+}
+
+function notablePlayoffContext(rivalry) {
+  if (!rivalry?.meetings?.length) return "";
+
+  const notable = rivalry.meetings
+    .filter((meeting) => meeting.isPlayoff && notablePlayoffStageLabel(meeting.stage))
+    .slice()
+    .sort((a, b) => {
+      if (Number(a.season) !== Number(b.season)) {
+        return Number(b.season) - Number(a.season);
+      }
+      return Number(b.week || 0) - Number(a.week || 0);
+    });
+
+  if (!notable.length) return "";
+
+  if (notable.length === 1) {
+    const meeting = notable[0];
+    const stage = notablePlayoffStageLabel(meeting.stage);
+    const winner = meeting.winnerName || "The winner";
+
+    if (asNumber(rivalry.playoffs?.games) === 1) {
+      return `${winner} won their only playoff meeting, a ${meeting.season} ${stage}.`;
+    }
+
+    return `${winner} won a ${meeting.season} ${stage} meeting.`;
+  }
+
+  const details = notable.map((meeting) => {
+    const stage = notablePlayoffStageLabel(meeting.stage);
+    const winner = meeting.winnerName || "tie";
+    return `${meeting.season} ${stage}: ${winner}`;
+  });
+
+  return `Notable playoff meetings: ${details.join("; ")}.`;
+}
+
 function narrativeFor(matchup, week) {
   const { sideA, sideB, rivalry } = matchup;
 
@@ -223,39 +266,35 @@ function narrativeFor(matchup, week) {
     leader?.managerId === sideA.managerId ? recordB : recordA;
 
   const streak = rivalry.currentStreak;
+  const playoffContext = notablePlayoffContext(rivalry);
+  let base = "";
 
   if (
     leader &&
     streak?.managerId === leader.managerId &&
     asNumber(streak.count) >= 2
   ) {
-    return `${leader.managerName} leads the recorded series ${leaderRecord.wins}-${trailerRecord.wins} and has won ${streak.count} straight.`;
-  }
-
-  if (rivalry.playoffs?.games > 0) {
-    return `${seriesLabel(
+    base = `${leader.managerName} leads the recorded series ${leaderRecord.wins}-${trailerRecord.wins} and has won ${streak.count} straight.`;
+  } else if (rivalry.playoffs?.games > 0 && !playoffContext) {
+    base = `${seriesLabel(
       rivalry,
       sideA,
       sideB,
       "all"
     )}; ${seriesLabel(rivalry, sideA, sideB, "playoffs").toLowerCase()} in the playoffs.`;
-  }
-
-  if (leader) {
+  } else if (leader) {
     const latestWinner = rivalry.latestMeeting?.winnerName;
-    if (latestWinner) {
-      return `${leader.managerName} leads the recorded series ${leaderRecord.wins}-${trailerRecord.wins}; ${latestWinner} won the last meeting.`;
-    }
-
-    return `${leader.managerName} leads the recorded series ${leaderRecord.wins}-${trailerRecord.wins}.`;
+    base = latestWinner
+      ? `${leader.managerName} leads the recorded series ${leaderRecord.wins}-${trailerRecord.wins}; ${latestWinner} won the last meeting.`
+      : `${leader.managerName} leads the recorded series ${leaderRecord.wins}-${trailerRecord.wins}.`;
+  } else {
+    const latestWinner = rivalry.latestMeeting?.winnerName;
+    base = latestWinner
+      ? `The recorded series is tied ${recordA.wins}-${recordB.wins}; ${latestWinner} won the last meeting.`
+      : `The recorded series is tied ${recordA.wins}-${recordB.wins}.`;
   }
 
-  const latestWinner = rivalry.latestMeeting?.winnerName;
-  if (latestWinner) {
-    return `The recorded series is tied ${recordA.wins}-${recordB.wins}; ${latestWinner} won the last meeting.`;
-  }
-
-  return `The recorded series is tied ${recordA.wins}-${recordB.wins}.`;
+  return playoffContext ? `${base} ${playoffContext}` : base;
 }
 
 function sideSnapshot(almanac, season, rosterId, managerMetrics) {

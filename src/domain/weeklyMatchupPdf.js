@@ -25,7 +25,11 @@ function ascii(value) {
     .replace(/[“”]/g, '"')
     .replace(/[–—]/g, "-")
     .replace(/•/g, "·")
-    .replace(/[^\x20-\x7E·]/g, "?");
+    // Helvetica/WinAnsi cannot render emoji. Drop unsupported glyphs cleanly
+    // instead of exposing replacement question marks in team names.
+    .replace(/[^\x20-\x7E·]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function pdfEscape(value) {
