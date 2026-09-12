@@ -28,12 +28,15 @@ function stateSummary(state) {
     seasons: history.seasons.length,
     historicalManagers: history.managers.length,
     ownershipOverrides: Object.keys(state?.ownershipOverrides || {}).length,
+    managerAttributionOverrides: Object.keys(
+      state?.managerAttributionOverrides || {}
+    ).length,
     loreEntries: Array.isArray(state?.loreEntries) ? state.loreEntries.length : 0,
   };
 }
 
 function summaryText(summary) {
-  return `${summary.seasons} manual season${summary.seasons === 1 ? "" : "s"} · ${summary.historicalManagers} historical manager${summary.historicalManagers === 1 ? "" : "s"} · ${summary.ownershipOverrides} ownership decision${summary.ownershipOverrides === 1 ? "" : "s"} · ${summary.loreEntries} lore entr${summary.loreEntries === 1 ? "y" : "ies"}`;
+  return `${summary.seasons} manual season${summary.seasons === 1 ? "" : "s"} · ${summary.historicalManagers} historical manager${summary.historicalManagers === 1 ? "" : "s"} · ${summary.ownershipOverrides} ownership decision${summary.ownershipOverrides === 1 ? "" : "s"} · ${summary.managerAttributionOverrides} manager attribution${summary.managerAttributionOverrides === 1 ? "" : "s"} · ${summary.loreEntries} lore entr${summary.loreEntries === 1 ? "y" : "ies"}`;
 }
 
 export default function CommissionerBackupAdmin({ almanac, onImport }) {
@@ -82,7 +85,7 @@ export default function CommissionerBackupAdmin({ almanac, onImport }) {
         confirmation =
           `Import this Commissioner Backup for ${almanac.leagueSeries.name}?\n\n` +
           `${summaryText(incoming)}\n\n` +
-          "This REPLACES the current commissioner-entered Manual History, ownership reconciliation decisions and lore entries for this league. Sleeper history/cache is not affected.";
+          "This REPLACES the current commissioner-entered Manual History, ownership reconciliation decisions, historical manager attributions and lore entries for this league. Sleeper history/cache is not affected.";
         successMessage = `Commissioner Backup imported · ${summaryText(incoming)}.`;
       } else {
         const importedHistory = normalizeManualHistory(parsed.manualHistory);
@@ -94,9 +97,9 @@ export default function CommissionerBackupAdmin({ almanac, onImport }) {
         confirmation =
           `This is a full Almanac export, not a compact Commissioner Backup.\n\n` +
           `It contains ${importedHistory.seasons.length} manual season${importedHistory.seasons.length === 1 ? "" : "s"} and ${importedHistory.managers.length} historical manager${importedHistory.managers.length === 1 ? "" : "s"}.\n\n` +
-          "Import its Manual History only? Current ownership reconciliation decisions and lore entries will be kept.";
+          "Import its Manual History only? Current ownership reconciliation decisions, historical manager attributions and lore entries will be kept.";
         successMessage =
-          `Manual History restored from Almanac export · ${importedHistory.seasons.length} season${importedHistory.seasons.length === 1 ? "" : "s"}. Ownership/lore data was left unchanged.`;
+          `Manual History restored from Almanac export · ${importedHistory.seasons.length} season${importedHistory.seasons.length === 1 ? "" : "s"}. Ownership/manager-attribution/lore data was left unchanged.`;
       }
 
       if (!window.confirm(confirmation)) return;
@@ -123,7 +126,7 @@ export default function CommissionerBackupAdmin({ almanac, onImport }) {
       <div className="notice compact-notice">
         <strong>Use this as the portable backup for everything you enter in Admin.</strong>{" "}
         It stores Manual History, historical manager identities, ownership reconciliation
-        decisions and lore entries. Sleeper API history, cached seasons and derived Almanac
+        decisions, historical manager attribution overrides and lore entries. Sleeper API history, cached seasons and derived Almanac
         records are intentionally excluded because the app can rebuild them.
       </div>
 
@@ -153,7 +156,7 @@ export default function CommissionerBackupAdmin({ almanac, onImport }) {
 
       <div className="muted">
         Existing full Almanac exports are also accepted as a Manual History recovery file;
-        they do not replace ownership/lore data.
+        they do not replace ownership/manager-attribution/lore data.
       </div>
 
       {message && <div className="sync-message">{message}</div>}

@@ -15,6 +15,7 @@ import RivalriesExplorer from "./components/RivalriesExplorer";
 import RecordBook from "./components/RecordBook";
 import ManualHistoryAdmin from "./components/ManualHistoryAdmin";
 import CommissionerBackupAdmin from "./components/CommissionerBackupAdmin";
+import HistoricalManagerAttributionAdmin from "./components/HistoricalManagerAttributionAdmin";
 import WeeklyMatchupStudio from "./components/WeeklyMatchupStudio";
 import { getMeaningfulCompetitiveGames } from "./domain/gameUtils";
 
@@ -122,6 +123,8 @@ export default function App() {
 
     const sleeperAlmanac = normalizeSleeperHistory(raw, {
       ownershipOverrides: commissionerState.ownershipOverrides,
+      managerAttributionOverrides:
+        commissionerState.managerAttributionOverrides,
     });
 
     return applyManualHistory(sleeperAlmanac, commissionerState.manualHistory);
@@ -536,17 +539,6 @@ export default function App() {
                     </div>
                   </section>
 
-                  <CommissionerBackupAdmin
-                    almanac={almanac}
-                    onImport={refreshAfterCommissionerImport}
-                  />
-
-                  <ManualHistoryAdmin
-                    almanac={almanac}
-                    onChange={refreshNormalized}
-                    reloadToken={commissionerImportRevision}
-                  />
-
                   <section className="panel admin-reconciliation-panel">
                     <div className="section-heading">
                       <div>
@@ -647,6 +639,23 @@ export default function App() {
                       </div>
                     )}
                   </section>
+
+                  <HistoricalManagerAttributionAdmin
+                    almanac={almanac}
+                    onChange={refreshNormalized}
+                    reloadToken={commissionerImportRevision}
+                  />
+
+                  <CommissionerBackupAdmin
+                    almanac={almanac}
+                    onImport={refreshAfterCommissionerImport}
+                  />
+
+                  <ManualHistoryAdmin
+                    almanac={almanac}
+                    onChange={refreshNormalized}
+                    reloadToken={commissionerImportRevision}
+                  />
                 </>
               )}
             </div>

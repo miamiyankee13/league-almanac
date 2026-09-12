@@ -376,7 +376,12 @@ function buildSeasonTeams(
   return rows;
 }
 
-function buildManagerTenures(seasonTeams, ownershipIssues, seasons) {
+function buildManagerTenures(
+  seasonTeams,
+  ownershipIssues,
+  seasons,
+  managerAttributionOverrides = {}
+) {
   const issueByKey = new Map(
     ownershipIssues.map((x) => [`${x.season}:${x.rosterId}`, x])
   );
@@ -388,19 +393,45 @@ function buildManagerTenures(seasonTeams, ownershipIssues, seasons) {
     const issue = issueByKey.get(`${team.season}:${team.rosterId}`);
     const season = seasonByYear.get(team.season);
     const lastScoredLeg = Number(season?.lastScoredLeg || 0);
+    const attributionOverride = managerAttributionOverrides?.[team.seasonTeamId] || null;
+    const requestedManagerId = str(attributionOverride?.creditedManagerId);
+    const documentedManagers = new Set(
+      [
+        team.ownerSnapshot.primaryManagerId,
+        ...(team.ownerSnapshot.coManagerIds || []),
+      ].filter(Boolean)
+    );
+    const validAttributionOverride =
+      !issue &&
+      requestedManagerId &&
+      requestedManagerId !== team.ownerSnapshot.primaryManagerId &&
+      documentedManagers.has(requestedManagerId);
+    const creditedPrimaryManagerId = validAttributionOverride
+      ? requestedManagerId
+      : team.ownerSnapshot.primaryManagerId;
 
     if (!issue) {
-      if (team.ownerSnapshot.primaryManagerId) {
+      if (creditedPrimaryManagerId) {
         tenures.push({
-          tenureId: `${team.seasonTeamId}:primary`,
+          tenureId: validAttributionOverride
+            ? `${team.seasonTeamId}:primary:commissioner-attributed`
+            : `${team.seasonTeamId}:primary`,
           season: team.season,
           franchiseId: team.franchiseId,
-          managerId: team.ownerSnapshot.primaryManagerId,
+          managerId: creditedPrimaryManagerId,
           role: "primary",
           startWeek: 1,
           endWeek: lastScoredLeg || null,
-          status: "accepted",
-          provenance: source(),
+          status: validAttributionOverride
+            ? "commissioner_attributed"
+            : "accepted",
+          provenance: validAttributionOverride
+            ? source(
+                "manual",
+                1,
+                "Full-season manager attribution reassigned to a documented Sleeper co-owner by the commissioner."
+              )
+            : source(),
         });
       }
     } else if (issue.status === "resolved") {
@@ -497,6 +528,8 @@ function buildManagerTenures(seasonTeams, ownershipIssues, seasons) {
     }
 
     for (const managerId of team.ownerSnapshot.coManagerIds) {
+      if (!issue && managerId === creditedPrimaryManagerId) continue;
+
       tenures.push({
         tenureId: `${team.seasonTeamId}:co:${managerId}`,
         season: team.season,
@@ -869,7 +902,10 @@ function buildChampions(
 
 export function normalizeSleeperHistory(
   raw,
-  { ownershipOverrides = {} } = {}
+  {
+    ownershipOverrides = {},
+    managerAttributionOverrides = {},
+  } = {}
 ) {
   const rawSeasons = raw?.seasons || [];
   if (!rawSeasons.length) {
@@ -898,7 +934,8 @@ export function normalizeSleeperHistory(
   const managerTenures = buildManagerTenures(
     seasonTeams,
     ownershipIssues,
-    seasons
+    seasons,
+    managerAttributionOverrides
   );
 
   const { games, lineups } = buildGamesAndLineups(

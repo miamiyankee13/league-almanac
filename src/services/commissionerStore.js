@@ -10,6 +10,7 @@ function keyFor(leagueSeriesId) {
 function emptyState() {
   return {
     ownershipOverrides: {},
+    managerAttributionOverrides: {},
     manualHistory: {},
     loreEntries: [],
   };
@@ -28,6 +29,7 @@ function normalizeCommissionerState(state) {
     ...emptyState(),
     ...source,
     ownershipOverrides: objectOrEmpty(source.ownershipOverrides),
+    managerAttributionOverrides: objectOrEmpty(source.managerAttributionOverrides),
     manualHistory: objectOrEmpty(source.manualHistory),
     loreEntries: Array.isArray(source.loreEntries) ? source.loreEntries : [],
   };
@@ -150,6 +152,34 @@ export function removeOwnershipOverride(leagueSeriesId, ownershipIssueId) {
   delete next[ownershipIssueId];
 
   state.ownershipOverrides = next;
+  saveCommissionerState(leagueSeriesId, state);
+
+  return next;
+}
+
+
+export function saveManagerAttributionOverride(
+  leagueSeriesId,
+  seasonTeamId,
+  override
+) {
+  const state = loadCommissionerState(leagueSeriesId);
+
+  state.managerAttributionOverrides = {
+    ...state.managerAttributionOverrides,
+    [seasonTeamId]: override,
+  };
+
+  saveCommissionerState(leagueSeriesId, state);
+  return state.managerAttributionOverrides;
+}
+
+export function removeManagerAttributionOverride(leagueSeriesId, seasonTeamId) {
+  const state = loadCommissionerState(leagueSeriesId);
+  const next = { ...state.managerAttributionOverrides };
+  delete next[seasonTeamId];
+
+  state.managerAttributionOverrides = next;
   saveCommissionerState(leagueSeriesId, state);
 
   return next;
