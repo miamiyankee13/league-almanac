@@ -24,15 +24,18 @@ function ascii(value) {
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
     .replace(/[–—]/g, "-")
-    .replace(/•/g, "-")
-    .replace(/[^\x20-\x7E]/g, "?");
+    .replace(/•/g, "·")
+    .replace(/[^\x20-\x7E·]/g, "?");
 }
 
 function pdfEscape(value) {
   return ascii(value)
     .replace(/\\/g, "\\\\")
     .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
+    .replace(/\)/g, "\\)")
+    // WinAnsi middle dot (0xB7). Keep the PDF stream ASCII-safe by
+    // emitting the byte as an octal escape instead of UTF-8.
+    .replace(/·/g, "\\267");
 }
 
 function colorCommand(color, stroke = false) {
@@ -445,8 +448,10 @@ function buildPdfBytes(pageContents) {
 
   objects[0] = "<< /Type /Catalog /Pages 2 0 R >>";
   objects[1] = "";
-  objects[2] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
-  objects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
+  objects[2] =
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
+  objects[3] =
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
 
   for (let i = 0; i < pageContents.length; i += 1) {
     const pageId = 5 + i * 2;
