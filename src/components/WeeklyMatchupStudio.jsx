@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { buildWeeklyMatchupStudio } from "../domain/weeklyMatchupStudio";
+import { createWeeklyMatchupPdf } from "../domain/weeklyMatchupPdf";
 import "./weeklyMatchupStudio.css";
 
 function TaleSide({ side }) {
@@ -80,10 +81,43 @@ export default function WeeklyMatchupStudio({ almanac, rawHistory }) {
     [almanac, rawHistory]
   );
   const [generated, setGenerated] = useState(false);
+  const [pdfError, setPdfError] = useState("");
 
   const title = data.week
     ? `Week ${data.week} Tale of the Tape`
     : "Weekly Tale of the Tape";
+
+  function openPdf() {
+    setPdfError("");
+
+    // Open the tab immediately from the user's click so iPad/Safari does not
+    // treat the PDF viewer as a blocked asynchronous popup.
+    const pdfTab = window.open("", "_blank");
+
+    if (!pdfTab) {
+      setPdfError("The PDF tab was blocked. Allow pop-ups for this site and try again.");
+      return;
+    }
+
+    try {
+      pdfTab.document.title = `${title} - Generating PDF`;
+      pdfTab.document.body.innerHTML =
+        '<div style="font-family:system-ui;padding:24px;color:#333">Generating PDF...</div>';
+
+      const { blob } = createWeeklyMatchupPdf(data);
+      const url = URL.createObjectURL(blob);
+
+      pdfTab.location.replace(url);
+
+      // Give Safari plenty of time to load the local PDF before releasing the
+      // temporary object URL. The opened tab keeps its own loaded document.
+      window.setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+    } catch (error) {
+      pdfTab.close();
+      console.error(error);
+      setPdfError(error?.message || "Could not generate the weekly PDF.");
+    }
+  }
 
   return (
     <section className="panel weekly-studio">
@@ -100,12 +134,14 @@ export default function WeeklyMatchupStudio({ almanac, rawHistory }) {
           <button
             type="button"
             className="secondary-button weekly-studio-print"
-            onClick={() => window.print()}
+            onClick={openPdf}
           >
-            PRINT / SAVE PDF
+            OPEN PDF
           </button>
         )}
       </div>
+
+      {pdfError && <div className="error">{pdfError}</div>}
 
       {!data.available ? (
         <div className="empty-state weekly-studio-empty">
