@@ -356,7 +356,7 @@ function drawMatchupCard(page, matchup, week, top) {
   drawCompareRow(
     page,
     compareTop,
-    "CAREER RECORD",
+    "CAREER H2H RECORD",
     matchup.sideA.careerRecord,
     matchup.sideB.careerRecord
   );
@@ -388,7 +388,7 @@ function drawMatchupCard(page, matchup, week, top) {
     bold: true,
     color: COLORS.dim,
   });
-  page.text("PLAYOFF H2H", center + 12, historyTop + 14, {
+  page.text("RECORDED PLAYOFF SERIES", center + 12, historyTop + 14, {
     size: 6.3,
     bold: true,
     color: COLORS.dim,

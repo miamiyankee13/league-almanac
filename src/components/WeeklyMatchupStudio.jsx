@@ -39,7 +39,7 @@ function MatchupCard({ matchup, week }) {
 
       <div className="tot-compare">
         <CompareRow
-          label="CAREER RECORD"
+          label="CAREER H2H RECORD"
           left={matchup.sideA.careerRecord}
           right={matchup.sideB.careerRecord}
         />
@@ -61,7 +61,7 @@ function MatchupCard({ matchup, week }) {
           <strong>{matchup.seriesLabel}</strong>
         </div>
         <div>
-          <span>PLAYOFF H2H</span>
+          <span>RECORDED PLAYOFF SERIES</span>
           <strong>{matchup.playoffSeriesLabel}</strong>
         </div>
         <div className="tot-last-meeting">
@@ -155,7 +155,7 @@ export default function WeeklyMatchupStudio({ almanac, rawHistory }) {
             </span>
             <strong>{data.matchupCount} matchups ready</strong>
             <p>
-              One concise card per matchup: season record, career record, titles,
+              One concise card per matchup: season record, career H2H record, titles,
               recorded series, playoff history and the last meeting.
             </p>
           </div>
