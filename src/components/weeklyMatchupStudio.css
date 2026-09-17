@@ -157,8 +157,9 @@
 }
 
 .tot-compare {
-  border-top: 1px solid var(--alm-line);
-  border-bottom: 1px solid var(--alm-line);
+  width: 78%;
+  margin: 0 auto;
+  border: 1px solid var(--alm-line);
 }
 
 .tot-compare-row {
@@ -262,6 +263,12 @@
 
   .tot-team-name {
     font-size: 14px;
+  }
+
+  .tot-compare {
+    width: 100%;
+    border-right: 0;
+    border-left: 0;
   }
 
   .tot-compare-row {

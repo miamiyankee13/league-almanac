@@ -235,14 +235,16 @@ function drawDocumentHeader(page, data, pageNumber, pageCount) {
   );
 }
 
-function drawCompareRow(page, top, label, left, right) {
-  const center = MARGIN + CARD_WIDTH / 2;
-  page.text(left, MARGIN + 18, top + 14, {
+function drawCompareRow(page, top, label, left, right, compareX, compareWidth) {
+  const center = compareX + compareWidth / 2;
+
+  page.text(left, compareX + 18, top + 14, {
     size: 10,
     bold: true,
     color: COLORS.text,
-    maxWidth: 130,
+    maxWidth: 95,
   });
+
   page.text(label, center, top + 13.5, {
     size: 6.5,
     bold: true,
@@ -250,12 +252,13 @@ function drawCompareRow(page, top, label, left, right) {
     align: "center",
     maxWidth: 190,
   });
-  page.text(right, PAGE_WIDTH - MARGIN - 18, top + 14, {
+
+  page.text(right, compareX + compareWidth - 18, top + 14, {
     size: 10,
     bold: true,
     color: COLORS.text,
     align: "right",
-    maxWidth: 130,
+    maxWidth: 95,
   });
 }
 
@@ -352,31 +355,74 @@ function drawMatchupCard(page, matchup, week, top) {
   });
 
   const compareTop = top + 103;
-  page.line(x + 3, compareTop, x + w, compareTop, COLORS.line, 0.7);
+  const compareWidth = w * 0.78;
+  const compareX = x + (w - compareWidth) / 2;
+
+  page.line(
+    compareX,
+    compareTop,
+    compareX + compareWidth,
+    compareTop,
+    COLORS.line,
+    0.7
+  );
+
   drawCompareRow(
     page,
     compareTop,
     "CAREER H2H RECORD",
     matchup.sideA.careerRecord,
-    matchup.sideB.careerRecord
+    matchup.sideB.careerRecord,
+    compareX,
+    compareWidth
   );
-  page.line(x + 3, compareTop + 20, x + w, compareTop + 20, COLORS.line, 0.5);
+
+  page.line(
+    compareX,
+    compareTop + 20,
+    compareX + compareWidth,
+    compareTop + 20,
+    COLORS.line,
+    0.5
+  );
+
   drawCompareRow(
     page,
     compareTop + 20,
     "TITLES",
     String(matchup.sideA.championships),
-    String(matchup.sideB.championships)
+    String(matchup.sideB.championships),
+    compareX,
+    compareWidth
   );
-  page.line(x + 3, compareTop + 40, x + w, compareTop + 40, COLORS.line, 0.5);
+
+  page.line(
+    compareX,
+    compareTop + 40,
+    compareX + compareWidth,
+    compareTop + 40,
+    COLORS.line,
+    0.5
+  );
+
   drawCompareRow(
     page,
     compareTop + 40,
     "PLAYOFF APPEARANCES",
     String(matchup.sideA.playoffAppearances),
-    String(matchup.sideB.playoffAppearances)
+    String(matchup.sideB.playoffAppearances),
+    compareX,
+    compareWidth
   );
-  page.line(x + 3, compareTop + 60, x + w, compareTop + 60, COLORS.line, 0.7);
+
+  page.line(
+    compareX,
+    compareTop + 60,
+    compareX + compareWidth,
+    compareTop + 60,
+    COLORS.line,
+    0.7
+  );
 
   const historyTop = compareTop + 60;
   const historyWidth = (w - 3) / 2;
