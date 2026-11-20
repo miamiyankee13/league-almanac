@@ -11,18 +11,19 @@
 :root {
   color-scheme: dark;
 
-  --alm-bg:          #0b0e13;
-  --alm-panel:       #11151c;
-  --alm-panel-2:     #161b24;
-  --alm-panel-3:     #0e131a;
-  --alm-status-bg:   #070a0e;
+  /* DARK (default) — Refined Charcoal */
+  --alm-bg:          #111820;
+  --alm-panel:       #1a222c;
+  --alm-panel-2:     #202a35;
+  --alm-panel-3:     #151e28;
+  --alm-status-bg:   #0f151d;
 
-  --alm-line:        #1f2733;
-  --alm-line-2:      #2a3444;
+  --alm-line:        #2b3645;
+  --alm-line-2:      #3a485a;
 
-  --alm-text:        #dfe4ec;
-  --alm-dim:         #7a8699;
-  --alm-dim-2:       #576274;
+  --alm-text:        #e2e8f0;
+  --alm-dim:         #9aa7b8;
+  --alm-dim-2:       #8190a3;
 
   --alm-amber:       #e0a83b;
   --alm-cyan:        #5bc6d6;
@@ -54,12 +55,12 @@
   --alm-panel-3:     #f0eadb;
   --alm-status-bg:   #e7e0cf;
 
-  --alm-line:        rgba(27,31,40,0.14);
+  --alm-line:        rgba(27,31,40,0.17);
   --alm-line-2:      rgba(27,31,40,0.26);
 
   --alm-text:        #1b1f28;
   --alm-dim:         #5a6473;
-  --alm-dim-2:       #8a93a3;
+  --alm-dim-2:       #727d8c;
 
   --alm-amber:       #a6760f;
   --alm-cyan:        #1d6f80;
